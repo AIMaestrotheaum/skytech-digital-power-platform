@@ -56,7 +56,7 @@ import LeadManagement from "../pages/admin/LeadManagement";
 import LeadDetail from "../pages/admin/LeadDetail";
 import QuoteManagement from "../pages/admin/QuoteManagement";
 import EditQuotation from "../pages/admin/EditQuotation";
-import ServiceAmcManagement from "../pages/admin/ServiceAMCManagement";
+import ServiceAMCManagement from "../pages/admin/ServiceAMCManagement";
 import ServiceRequestManagement from "../pages/admin/ServiceRequestManagement";
 
 export default function AppRoutes() {
