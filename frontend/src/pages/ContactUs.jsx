@@ -407,12 +407,12 @@ export default function ContactUs() {
   }, []);
 
   return (
-    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+    <div className="w-full min-h-screen overflow-hidden">
       <iframe
         ref={iframeRef}
         title="SKYTECH Contact Us"
         src="/stitch/contact_us_skytech_electricals/code.html"
-        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+        className="block w-full min-h-screen h-screen border-0"
       />
     </div>
   );

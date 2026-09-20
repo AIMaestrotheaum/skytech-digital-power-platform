@@ -438,7 +438,7 @@ export default function ServiceRequestManagement() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-72px)] bg-slate-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-[1600px] space-y-6">
 
         {/* HEADER */}

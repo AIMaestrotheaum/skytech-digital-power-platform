@@ -421,12 +421,12 @@ export default function ThreePhaseUps() {
   }, []);
 
   return (
-    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+    <div className="w-full min-h-screen overflow-hidden">
       <iframe
         ref={iframeRef}
         title="SKYTECH Three-Phase UPS Calculator"
         src="/stitch/three_phase_ups_skytech_electricals/code.html"
-        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+        className="block w-full min-h-screen h-screen border-0"
       />
     </div>
   );

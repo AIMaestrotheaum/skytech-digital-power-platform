@@ -658,12 +658,12 @@ export default function LeadDetail() {
   }, []);
 
   return (
-    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+    <div className="w-full min-h-screen overflow-hidden">
       <iframe
         ref={iframeRef}
         title="SKYTECH Lead Detail"
         src="/stitch/lead_detail_skytech_admin/code.html"
-        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+        className="block w-full min-h-screen h-screen border-0"
       />
     </div>
   );

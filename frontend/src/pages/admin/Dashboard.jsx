@@ -14,35 +14,57 @@ export default function AdminDashboard() {
     let timeoutId = null;
     let isMounted = true;
 
-    const replaceText = (
+    const replaceKpiValue = (
       doc,
-      possibleTexts,
+      label,
       newValue
     ) => {
-      const elements = Array.from(
-        doc.querySelectorAll("*")
-      );
-
-      const element = elements.find((el) => {
+      const labels = Array.from(
+        doc.querySelectorAll("span, p, div")
+      ).filter((el) => {
         if (el.children.length !== 0) {
           return false;
         }
 
-        const text =
-          el.textContent?.trim();
-
-        return possibleTexts.some(
-          (item) =>
-            text?.toLowerCase() ===
-            item.toLowerCase()
+        return (
+          el.textContent?.trim().toLowerCase() ===
+          label.toLowerCase()
         );
       });
 
-      if (!element) {
+      const labelElement = labels[0];
+
+      if (!labelElement) {
         return false;
       }
 
-      element.textContent =
+      const card = labelElement.closest(
+        "div.bg-surface-container-lowest, div.bg-primary-container"
+      );
+
+      if (!card) {
+        return false;
+      }
+
+      const valueElement = Array.from(
+        card.querySelectorAll("div")
+      ).find((el) => {
+        if (el.children.length !== 0) {
+          return false;
+        }
+
+        const text = el.textContent?.trim() || "";
+
+        return (
+          /^₹?[\d,.]+[MKLmk]?$/.test(text)
+        );
+      });
+
+      if (!valueElement) {
+        return false;
+      }
+
+      valueElement.textContent =
         newValue ?? "-";
 
       return true;
@@ -115,51 +137,43 @@ export default function AdminDashboard() {
           data?.open_service_requests ?? 0;
 
         /*
-         * Total leads
+         * KPI values are located relative to
+         * their Stitch labels so unrelated
+         * numbers elsewhere on the dashboard
+         * are never overwritten.
          */
-        replaceText(
+        replaceKpiValue(
           doc,
-          ["24"],
+          "Total Leads",
           String(totalLeads)
         );
 
-        /*
-         * Pending quotes
-         */
-        replaceText(
+        replaceKpiValue(
           doc,
-          ["12"],
+          "Open Quotes",
           String(pendingQuotes)
         );
 
-        /*
-         * Active AMC
-         */
-        replaceText(
+        replaceKpiValue(
           doc,
-          ["8"],
+          "Active AMC",
           String(activeAmc)
         );
 
-        /*
-         * Monthly revenue
-         */
-        replaceText(
+        replaceKpiValue(
           doc,
-          ["₹1.2L"],
+          "Service Requests",
+          String(openServiceRequests)
+        );
+
+        replaceKpiValue(
+          doc,
+          "Monthly Revenue",
           `₹${Number(
             monthlyRevenue
           ).toLocaleString("en-IN")}`
         );
 
-        /*
-         * Open service requests
-         */
-        replaceText(
-          doc,
-          ["3"],
-          String(openServiceRequests)
-        );
       } catch (error) {
         if (!isMounted) {
           return;
@@ -216,12 +230,12 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+    <div className="w-full min-h-screen overflow-hidden">
       <iframe
         ref={iframeRef}
         title="SKYTECH Admin Dashboard"
         src="/stitch/admin_dashboard_skytech/code.html"
-        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+        className="block w-full min-h-screen h-screen border-0"
       />
     </div>
   );

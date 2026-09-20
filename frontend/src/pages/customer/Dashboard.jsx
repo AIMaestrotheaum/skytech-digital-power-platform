@@ -1,5 +1,9 @@
-// Native React migration target for the Stitch screen: Dashboard.jsx
-// The working Stitch version is currently preserved in /public/stitch-pages/.
+import StitchPage from "../../components/StitchPage";
+
 export default function Dashboard() {
-  return null;
+  return (
+    <StitchPage
+      folder="customer_dashboard_skytech_electricals"
+    />
+  );
 }

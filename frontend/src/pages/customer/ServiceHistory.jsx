@@ -685,7 +685,7 @@ export default function ServiceHistory() {
   }, [navigate]);
 
   return (
-    <div className="relative w-full min-h-[calc(100vh-72px)] overflow-x-hidden">
+    <div className="relative w-full min-h-screen overflow-x-hidden">
       <iframe
         ref={iframeRef}
         title="SKYTECH Customer Service History"
@@ -693,7 +693,7 @@ export default function ServiceHistory() {
         className="block w-full border-0"
         style={{
           height:
-            "max(720px, calc(100vh - 72px))",
+            "max(720px, 100vh)",
         }}
       />
 

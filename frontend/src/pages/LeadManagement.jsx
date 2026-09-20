@@ -697,12 +697,12 @@ export default function LeadManagement() {
   }, []);
 
   return (
-    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+    <div className="w-full min-h-screen overflow-hidden">
       <iframe
         ref={iframeRef}
         title="SKYTECH Lead Management"
         src="/stitch/lead_management_skytech_admin/code.html"
-        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+        className="block w-full min-h-screen h-screen border-0"
       />
     </div>
   );
