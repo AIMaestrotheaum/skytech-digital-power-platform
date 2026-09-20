@@ -2,161 +2,60 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 const ROUTES = {
-  Home: "/",
-  About: "/about",
-  Products: "/products",
-  Services: "/services",
-  Industries: "/industries",
-  Projects: "/projects",
-  Project: "/projects",
-  Blog: "/knowledge",
-  Knowledge: "/knowledge",
-  "Project Gallery": "/project-gallery",
-  Contact: "/contact",
-  "Contact Us": "/contact",
-  "Talk to an Expert": "/contact",
-  "Get a Quote": "/quote",
-  "Get Quote": "/quote",
-  "Request a Quote": "/quote",
-  "Our Projects": "/projects",
-  "UPS Calculator": "/ups-calculator",
-  "Battery Calculator": "/battery-calculator",
-  "Three Phase UPS": "/three-phase-ups",
-  "AI Power Assistant": "/ai-power-assistant",
-  Login: "/portal/login",
-  "Portal Login": "/portal/login",
-  Register: "/portal/register",
-  Dashboard: "/portal/dashboard",
-  Equipment: "/portal/equipment",
-  "My Equipment": "/portal/equipment",
-  "Service History": "/portal/service-history",
-  Admin: "/admin",
-  Leads: "/admin/leads",
-  "Lead Management": "/admin/leads",
-  Quotes: "/admin/quotes",
-  "Quote Management": "/admin/quotes",
-  "Service AMC": "/admin/service-amc",
-  "Service & AMC": "/admin/service-amc",
-  "Service Requests": "/admin/service-requests",
-  "Service Request Management": "/admin/service-requests",
-  Logout: "/portal/login",
-  Support: "/support/amc-request",
-  "AMC Request": "/support/amc-request",
+  about: "/about",
+  products: "/products",
+  services: "/services",
+  industries: "/industries",
+  projects: "/projects",
+  "project gallery": "/project-gallery",
+  blog: "/knowledge",
+  "knowledge center": "/knowledge",
+  "get a quote": "/quote",
+  "talk to an expert": "/contact",
+  contact: "/contact",
+  "contact us": "/contact",
+  "contact support": "/contact",
+
+  "portal login": "/portal/login",
+  login: "/portal/login",
+  register: "/portal/register",
+
+  "customer portal": "/portal/login",
+  "customer dashboard": "/portal/dashboard",
+
+  "ups calculator": "/ups-calculator",
+  "battery calculator": "/battery-calculator",
+  "three phase ups": "/three-phase-ups",
+  "ai power assistant": "/ai-power-assistant",
+
+  "service history": "/portal/service-history",
+  equipment: "/portal/equipment",
+
+  "amc request": "/support/amc-request",
+  "request service": "/support/amc-request",
+  support: "/support/amc-request",
 };
 
-function normalizeText(value) {
-  return (
-    value
-      ?.replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase() || ""
-  );
+function cleanText(text) {
+  return text
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
-function getRouteFromText(text) {
-  const normalizedText = normalizeText(text);
+function navigateFromText(text, navigate) {
+  const clean = cleanText(text);
 
-  if (!normalizedText) {
-    return null;
+  if (!clean) return false;
+
+  const exactRoute = ROUTES[clean];
+
+  if (exactRoute) {
+    navigate(exactRoute);
+    return true;
   }
 
-  const matchedLabel = Object.keys(ROUTES).find(
-    (label) => normalizeText(label) === normalizedText
-  );
-
-  return matchedLabel ? ROUTES[matchedLabel] : null;
-}
-
-function clearAuthStorage() {
-  [
-    "access_token",
-    "token_type",
-    "role",
-    "user_email",
-    "user_id",
-    "name",
-  ].forEach((key) => {
-    localStorage.removeItem(key);
-    sessionStorage.removeItem(key);
-  });
-}
-
-function closeMobileMenu(nav) {
-  if (!nav) return;
-  nav.style.display = "";
-  nav.removeAttribute("data-skytech-mobile-open");
-}
-
-function setupMobileMenu(doc) {
-  const menuButton = Array.from(
-    doc.querySelectorAll("button")
-  ).find((button) =>
-    normalizeText(button.textContent).includes("menu")
-  );
-
-  const nav = doc.querySelector("header nav");
-
-  if (!menuButton || !nav) {
-    return () => {};
-  }
-
-  let isOpen = false;
-  const header = menuButton.closest("header");
-
-  if (header) {
-    const currentPosition = doc.defaultView?.getComputedStyle(header).position;
-    if (currentPosition === "static") {
-      header.style.position = "relative";
-    }
-  }
-
-  const updateMenu = () => {
-    if (doc.defaultView?.innerWidth > 767) {
-      nav.style.display = "";
-      nav.removeAttribute("data-skytech-mobile-open");
-      isOpen = false;
-      return;
-    }
-
-    if (isOpen) {
-      nav.style.display = "flex";
-      nav.style.flexDirection = "column";
-      nav.style.position = "absolute";
-      nav.style.left = "0";
-      nav.style.right = "0";
-      nav.style.top = "100%";
-      nav.style.zIndex = "9999";
-      nav.style.padding = "1rem";
-      nav.style.gap = "0.75rem";
-      nav.style.background = "inherit";
-      nav.style.boxShadow = "0 12px 24px rgba(0,0,0,.12)";
-      nav.dataset.skytechMobileOpen = "true";
-    } else {
-      nav.style.display = "none";
-      nav.removeAttribute("data-skytech-mobile-open");
-    }
-  };
-
-  const handleMenuClick = (event) => {
-    if (doc.defaultView?.innerWidth > 767) return;
-    event.preventDefault();
-    event.stopPropagation();
-    isOpen = !isOpen;
-    updateMenu();
-  };
-
-  const handleResize = () => updateMenu();
-
-  menuButton.addEventListener("click", handleMenuClick);
-  doc.defaultView?.addEventListener("resize", handleResize);
-
-  updateMenu();
-
-  return () => {
-    menuButton.removeEventListener("click", handleMenuClick);
-    doc.defaultView?.removeEventListener("resize", handleResize);
-    closeMobileMenu(nav);
-  };
+  return false;
 }
 
 export default function StitchPage({ folder }) {
@@ -164,129 +63,322 @@ export default function StitchPage({ folder }) {
   const iframeRef = useRef(null);
 
   useEffect(() => {
-    document.title = "SKYTECH ELECTRICALS";
-
     const iframe = iframeRef.current;
 
-    if (!iframe) {
-      return undefined;
-    }
-
-    let iframeDocument = null;
-    let handleClick = null;
-    let cleanupMobileMenu = null;
+    if (!iframe) return;
 
     const handleLoad = () => {
       try {
-        iframeDocument =
-          iframe.contentDocument ||
-          iframe.contentWindow?.document;
+        const doc = iframe.contentDocument;
 
-        if (!iframeDocument) {
-          return;
-        }
+        if (!doc) return;
 
-        cleanupMobileMenu?.();
-        cleanupMobileMenu = setupMobileMenu(iframeDocument);
+        /*
+         * ---------------------------------------------------------
+         * 1. NORMAL LINKS
+         * ---------------------------------------------------------
+         */
 
-        handleClick = (event) => {
-          const target = event.target;
+        doc.querySelectorAll("a").forEach((link) => {
+          if (link.dataset.skytechNavigationBound) return;
 
-          if (!(target instanceof Element)) {
-            return;
-          }
+          link.dataset.skytechNavigationBound = "true";
 
-          const element = target.closest("a, button");
+          link.addEventListener("click", (event) => {
+            const href = link.getAttribute("href");
+            const text = cleanText(link.innerText || link.textContent || "");
 
-          if (!element) {
-            return;
-          }
+            /*
+             * Real internal route already exists.
+             */
+            if (href && href.startsWith("/")) {
+              const path = href.split("?")[0].split("#")[0];
 
-          if (
-            element.hasAttribute("disabled") ||
-            element.getAttribute("aria-disabled") === "true"
-          ) {
-            return;
-          }
+              if (
+                [
+                  "/about",
+                  "/products",
+                  "/services",
+                  "/industries",
+                  "/projects",
+                  "/project-gallery",
+                  "/knowledge",
+                  "/contact",
+                  "/quote",
+                  "/ups-calculator",
+                  "/battery-calculator",
+                  "/three-phase-ups",
+                  "/ai-power-assistant",
+                  "/portal/login",
+                  "/portal/register",
+                  "/portal/dashboard",
+                  "/portal/equipment",
+                  "/portal/service-history",
+                  "/support/amc-request",
+                  "/admin",
+                  "/admin/leads",
+                  "/admin/quotes",
+                  "/admin/service-amc",
+                  "/admin/service-requests",
+                ].includes(path)
+              ) {
+                event.preventDefault();
+                event.stopPropagation();
 
-          const text = normalizeText(element.textContent);
-          const aria = normalizeText(element.getAttribute("aria-label"));
-          const title = normalizeText(element.getAttribute("title"));
-          const href = element.getAttribute("href") || "";
-
-          /*
-           * The mobile menu toggle has its own handler.
-           */
-          if (text === "menu" || text.includes("menu")) {
-            return;
-          }
-
-          /*
-           * Real internal React routes.
-           */
-          if (
-            href.startsWith("/") &&
-            !href.startsWith("//")
-          ) {
-            event.preventDefault();
-            event.stopPropagation();
-            navigate(href);
-            return;
-          }
-
-          /*
-           * External links remain native.
-           */
-          if (
-            href.startsWith("http://") ||
-            href.startsWith("https://") ||
-            href.startsWith("mailto:") ||
-            href.startsWith("tel:")
-          ) {
-            return;
-          }
-
-          /*
-           * Match Stitch buttons/links by visible text,
-           * aria-label, or title.
-           */
-          const route =
-            getRouteFromText(text) ||
-            getRouteFromText(aria) ||
-            getRouteFromText(title);
-
-          if (route) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            if (route === "/portal/login" && (text === "logout" || text === "log out")) {
-              clearAuthStorage();
+                navigate(path);
+                return;
+              }
             }
 
-            cleanupMobileMenu?.();
-            navigate(route);
-            return;
-          }
+            /*
+             * Stitch commonly uses href="#".
+             * Use the visible text to determine the React route.
+             */
+            if (!href || href === "#" || href.startsWith("#")) {
+              if (navigateFromText(text, navigate)) {
+                event.preventDefault();
+                event.stopPropagation();
+              }
+            }
+          });
+        });
 
-          /*
-           * Prevent dead Stitch placeholder links.
-           */
-          if (
-            href === "#" ||
-            href === "" ||
-            href.endsWith(".html") ||
-            href.startsWith("./") ||
-            href.startsWith("../")
-          ) {
+        /*
+         * ---------------------------------------------------------
+         * 2. BUTTONS
+         * ---------------------------------------------------------
+         */
+
+        doc.querySelectorAll("button").forEach((button) => {
+          if (button.dataset.skytechNavigationBound) return;
+
+          button.dataset.skytechNavigationBound = "true";
+
+          button.addEventListener("click", (event) => {
+            const text = cleanText(
+              button.innerText || button.textContent || ""
+            );
+
+            /*
+             * Mobile menu is handled separately below.
+             */
+            if (
+              button.classList.contains("md:hidden") ||
+              text === "menu"
+            ) {
+              return;
+            }
+
+            /*
+             * Don't intercept buttons inside forms.
+             * This preserves Submit / Calculate / Reset behaviour.
+             */
+            if (
+              button.closest("form") ||
+              button.type === "submit" ||
+              button.type === "reset"
+            ) {
+              return;
+            }
+
+            if (navigateFromText(text, navigate)) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          });
+        });
+
+        /*
+         * ---------------------------------------------------------
+         * 3. MOBILE HAMBURGER MENU
+         * ---------------------------------------------------------
+         */
+
+        const menuButton =
+          doc.querySelector("button.md\\:hidden") ||
+          Array.from(doc.querySelectorAll("button")).find((button) => {
+            const text = cleanText(
+              button.innerText || button.textContent || ""
+            );
+
+            return (
+              text === "menu" ||
+              button.querySelector(".material-symbols-outlined")
+                ?.textContent
+                ?.trim() === "menu"
+            );
+          });
+
+        if (menuButton && !menuButton.dataset.skytechMobileBound) {
+          menuButton.dataset.skytechMobileBound = "true";
+
+          menuButton.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
-          }
-        };
 
-        iframeDocument.addEventListener("click", handleClick);
+            /*
+             * Stitch pages sometimes already contain a hidden
+             * mobile navigation container.
+             */
+            const possibleMenus = Array.from(
+              doc.querySelectorAll("nav, [role='navigation'], .mobile-menu")
+            );
+
+            let menu = possibleMenus.find((element) => {
+              const style = window.getComputedStyle(element);
+
+              return (
+                style.display === "none" ||
+                element.classList.contains("hidden") ||
+                element.classList.contains("md:hidden")
+              );
+            });
+
+            if (!menu) {
+              /*
+               * If the Stitch screen has no mobile menu markup,
+               * create a small navigation overlay inside the iframe.
+               */
+              menu = doc.createElement("div");
+
+              menu.id = "skytech-mobile-navigation";
+
+              menu.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 99999;
+                background: white;
+                padding: 24px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+                font-family: Inter, sans-serif;
+              `;
+
+              const routes = [
+                ["Home", "/"],
+                ["About", "/about"],
+                ["Products", "/products"],
+                ["Services", "/services"],
+                ["Industries", "/industries"],
+                ["Projects", "/projects"],
+                ["Knowledge Center", "/knowledge"],
+                ["Contact", "/contact"],
+                ["Get a Quote", "/quote"],
+                ["Portal Login", "/portal/login"],
+              ];
+
+              routes.forEach(([label, path]) => {
+                const item = doc.createElement("button");
+
+                item.textContent = label;
+
+                item.style.cssText = `
+                  display: block;
+                  width: 100%;
+                  padding: 14px 8px;
+                  border: none;
+                  background: transparent;
+                  text-align: left;
+                  font-size: 16px;
+                  font-weight: 600;
+                  cursor: pointer;
+                `;
+
+                item.addEventListener("click", () => {
+                  navigate(path);
+                });
+
+                menu.appendChild(item);
+              });
+
+              doc.body.appendChild(menu);
+            } else {
+              menu.classList.toggle("hidden");
+
+              if (menu.style.display === "none") {
+                menu.style.display = "block";
+              } else if (menu.dataset.skytechOpened === "true") {
+                menu.style.display = "none";
+              }
+
+              menu.dataset.skytechOpened =
+                menu.dataset.skytechOpened === "true"
+                  ? "false"
+                  : "true";
+            }
+          });
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * 4. MATERIAL ICON CONTACT SUPPORT BUTTON
+         * ---------------------------------------------------------
+         */
+
+        doc.querySelectorAll("button").forEach((button) => {
+          const icon = button.querySelector(".material-symbols-outlined");
+
+          if (!icon) return;
+
+          const iconName = cleanText(icon.textContent || "");
+
+          if (
+            iconName === "contact_support" &&
+            !button.dataset.skytechContactBound
+          ) {
+            button.dataset.skytechContactBound = "true";
+
+            button.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+
+              navigate("/contact");
+            });
+          }
+        });
+
+        /*
+         * ---------------------------------------------------------
+         * 5. TEXT LINKS SUCH AS "GET A QUOTE"
+         * ---------------------------------------------------------
+         */
+
+        const clickableTextElements = doc.querySelectorAll(
+          "a, button, [role='button']"
+        );
+
+        clickableTextElements.forEach((element) => {
+          const text = cleanText(
+            element.innerText || element.textContent || ""
+          );
+
+          if (!text) return;
+
+          /*
+           * Only apply to known navigation labels.
+           */
+          if (!ROUTES[text]) return;
+
+          if (element.dataset.skytechTextRouteBound) return;
+
+          element.dataset.skytechTextRouteBound = "true";
+
+          element.addEventListener("click", (event) => {
+            /*
+             * Never override form submission.
+             */
+            if (element.closest("form")) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            navigate(ROUTES[text]);
+          });
+        });
       } catch (error) {
         console.error(
-          "Could not attach Stitch navigation:",
+          "SKYTECH Stitch navigation error:",
           error
         );
       }
@@ -294,42 +386,37 @@ export default function StitchPage({ folder }) {
 
     iframe.addEventListener("load", handleLoad);
 
+    /*
+     * If iframe is already loaded.
+     */
     if (iframe.contentDocument?.readyState === "complete") {
       handleLoad();
     }
 
     return () => {
       iframe.removeEventListener("load", handleLoad);
-
-      if (iframeDocument && handleClick) {
-        iframeDocument.removeEventListener("click", handleClick);
-      }
-
-      cleanupMobileMenu?.();
-      cleanupMobileMenu = null;
     };
-  }, [navigate, folder]);
+  }, [folder, navigate]);
 
   return (
     <div
       style={{
         width: "100%",
         minHeight: "100vh",
-        margin: 0,
-        padding: 0,
         overflow: "hidden",
+        background: "#fff",
       }}
     >
       <iframe
         ref={iframeRef}
-        title="SKYTECH ELECTRICALS"
         src={`/stitch/${folder}/code.html`}
+        title={folder}
         style={{
+          display: "block",
           width: "100%",
           height: "100vh",
           minHeight: "700px",
           border: "none",
-          display: "block",
         }}
       />
     </div>
