@@ -1,6 +1,19 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
-// Public pages
+import PublicLayout from "../layouts/PublicLayout";
+import CustomerLayout from "../layouts/CustomerLayout";
+import AdminLayout from "../layouts/AdminLayout";
+
+import ProtectedRoute from "./ProtectedRoute";
+
+// ============================================================
+// PUBLIC PAGES
+// ============================================================
+
 import Home from "../pages/Home";
 import AboutUs from "../pages/AboutUs";
 import Products from "../pages/Products";
@@ -9,205 +22,241 @@ import Industries from "../pages/Industries";
 import Projects from "../pages/Projects";
 import ProjectGallery from "../pages/ProjectGallery";
 import KnowledgeCenter from "../pages/KnowledgeCenter";
-import GetAQuote from "../pages/GetAQuote";
 import ContactUs from "../pages/ContactUs";
+import GetAQuote from "../pages/GetAQuote";
+
 import UpsCalculator from "../pages/UpsCalculator";
 import BatteryCalculator from "../pages/BatteryCalculator";
 import ThreePhaseUps from "../pages/ThreePhaseUps";
 import AiPowerAssistant from "../pages/AiPowerAssistant";
-import ServiceRequestManagement from "../pages/ServiceRequestManagement";
-// Authentication
+
+import PublicAmcRequest from "../pages/PublicAmcRequest";
+
+// ============================================================
+// AUTHENTICATION
+// ============================================================
+
 import PortalLogin from "../pages/PortalLogin";
+import Register from "../pages/Register";
 
-// Customer portal
+// ============================================================
+// CUSTOMER PORTAL
+// ============================================================
+
 import CustomerDashboard from "../pages/CustomerDashboard";
-import EquipmentDetails from "../pages/EquipmentDetails";
-import ServiceHistorySchedule from "../pages/ServiceHistorySchedule";
+import Equipment from "../pages/customer/EquipmentDetails";
+import ServiceHistory from "../pages/customer/ServiceHistory";
 
-// Admin
-import AdminDashboard from "../pages/AdminDashboard";
-import LeadManagement from "../pages/LeadManagement";
-import LeadDetail from "../pages/LeadDetail";
-import QuoteManagement from "../pages/QuoteManagement";
-import EditQuotation from "../pages/EditQuotation";
-import ServiceAmcManagement from "../pages/ServiceAmcManagement";
+// ============================================================
+// ADMIN PORTAL
+// ============================================================
 
-// Support
-import ServiceRequestAmcEnquiry from "../pages/ServiceRequestAmcEnquiry";
-
-// Protected routes
-import ProtectedRoute from "../components/ProtectedRoute";
+import AdminDashboard from "../pages/admin/Dashboard";
+import LeadManagement from "../pages/admin/LeadManagement";
+import LeadDetail from "../pages/admin/LeadDetail";
+import QuoteManagement from "../pages/admin/QuoteManagement";
+import EditQuotation from "../pages/admin/EditQuotation";
+import ServiceAmcManagement from "../pages/admin/ServiceAmcManagement";
+import ServiceRequestManagement from "../pages/admin/ServiceRequestManagement";
 
 export default function AppRoutes() {
   return (
     <Routes>
 
-      {/* =========================
+      {/* =====================================================
           PUBLIC WEBSITE
-      ========================== */}
+      ===================================================== */}
 
-      <Route path="/" element={<Home />} />
+      <Route element={<PublicLayout />}>
 
-      <Route path="/about" element={<AboutUs />} />
+        <Route
+          path="/"
+          element={<Home />}
+        />
 
-      <Route path="/products" element={<Products />} />
+        <Route
+          path="/about"
+          element={<AboutUs />}
+        />
 
-      <Route path="/services" element={<Services />} />
+        <Route
+          path="/products"
+          element={<Products />}
+        />
 
-      <Route path="/industries" element={<Industries />} />
+        <Route
+          path="/services"
+          element={<Services />}
+        />
 
-      <Route path="/projects" element={<Projects />} />
+        <Route
+          path="/industries"
+          element={<Industries />}
+        />
 
-      <Route
-        path="/project-gallery"
-        element={<ProjectGallery />}
-      />
+        <Route
+          path="/projects"
+          element={<Projects />}
+        />
 
-      <Route
-        path="/knowledge"
-        element={<KnowledgeCenter />}
-      />
+        <Route
+          path="/project-gallery"
+          element={<ProjectGallery />}
+        />
 
-      <Route
-        path="/quote"
-        element={<GetAQuote />}
-      />
+        <Route
+          path="/knowledge"
+          element={<KnowledgeCenter />}
+        />
 
-      <Route
-        path="/contact"
-        element={<ContactUs />}
-      />
+        <Route
+          path="/contact"
+          element={<ContactUs />}
+        />
 
-      <Route
-        path="/ups-calculator"
-        element={<UpsCalculator />}
-      />
+        <Route
+          path="/quote"
+          element={<GetAQuote />}
+        />
 
-      <Route
-        path="/battery-calculator"
-        element={<BatteryCalculator />}
-      />
+        {/* =================================================
+            PUBLIC CALCULATORS / TOOLS
+        ================================================= */}
 
-      <Route
-        path="/three-phase-ups"
-        element={<ThreePhaseUps />}
-      />
+        <Route
+          path="/ups-calculator"
+          element={<UpsCalculator />}
+        />
 
-      <Route
-        path="/ai-power-assistant"
-        element={<AiPowerAssistant />}
-      />
+        <Route
+          path="/battery-calculator"
+          element={<BatteryCalculator />}
+        />
 
+        <Route
+          path="/three-phase-ups"
+          element={<ThreePhaseUps />}
+        />
 
-      {/* =========================
-          LOGIN
-      ========================== */}
+        <Route
+          path="/ai-power-assistant"
+          element={<AiPowerAssistant />}
+        />
+
+        {/* =================================================
+            PUBLIC AMC REQUEST
+        ================================================= */}
+
+        <Route
+          path="/support/amc-request"
+          element={<PublicAmcRequest />}
+        />
+
+      </Route>
+
+      {/* =====================================================
+          AUTHENTICATION
+      ===================================================== */}
 
       <Route
         path="/portal/login"
         element={<PortalLogin />}
       />
 
+      <Route
+        path="/portal/register"
+        element={<Register />}
+      />
 
-      {/* =========================
+      {/* =====================================================
           CUSTOMER PORTAL
-      ========================== */}
+      ===================================================== */}
 
       <Route
         element={
-          <ProtectedRoute allowedRoles={["customer"]} />
+          <ProtectedRoute
+            allowedRoles={["customer"]}
+          />
         }
       >
 
-        {/* Customer Dashboard */}
-        <Route
-          path="/portal/dashboard"
-          element={<CustomerDashboard />}
-        />
+        <Route element={<CustomerLayout />}>
 
-        {/* Customer Equipment */}
-        <Route
-          path="/portal/equipment"
-          element={<EquipmentDetails />}
-        />
+          <Route
+            path="/portal/dashboard"
+            element={<CustomerDashboard />}
+          />
 
-        {/* Customer Service History */}
-        <Route
-          path="/portal/service-history"
-          element={<ServiceHistorySchedule />}
-        />
+          <Route
+            path="/portal/equipment"
+            element={<Equipment />}
+          />
+
+          <Route
+            path="/portal/service-history"
+            element={<ServiceHistory />}
+          />
+
+        </Route>
 
       </Route>
 
-
-      {/* =========================
-          ADMIN PANEL
-      ========================== */}
+      {/* =====================================================
+          ADMIN PORTAL
+      ===================================================== */}
 
       <Route
         element={
-          <ProtectedRoute allowedRoles={["admin"]} />
+          <ProtectedRoute
+            allowedRoles={["admin"]}
+          />
         }
       >
 
-        {/* Admin Dashboard */}
-        <Route
-          path="/admin"
-          element={<AdminDashboard />}
-        />
+        <Route element={<AdminLayout />}>
 
-        {/* Lead Management */}
-        <Route
-          path="/admin/leads"
-          element={<LeadManagement />}
-        />
+          <Route
+            path="/admin"
+            element={<AdminDashboard />}
+          />
 
-        {/* Lead Detail */}
-        <Route
-          path="/admin/leads/detail"
-          element={<LeadDetail />}
-        />
+          <Route
+            path="/admin/leads"
+            element={<LeadManagement />}
+          />
 
-        {/* Quote Management */}
-        <Route
-          path="/admin/quotes"
-          element={<QuoteManagement />}
-        />
+          <Route
+            path="/admin/leads/:id"
+            element={<LeadDetail />}
+          />
 
-        {/* Edit Quotation */}
-        <Route
-          path="/admin/quotes/edit"
-          element={<EditQuotation />}
-        />
+          <Route
+            path="/admin/quotes"
+            element={<QuoteManagement />}
+          />
 
-        {/* Service & AMC Management */}
-        <Route
-          path="/admin/service-amc"
-          element={<ServiceAmcManagement />}
-        />
+          <Route
+            path="/admin/quotes/:id/edit"
+            element={<EditQuotation />}
+          />
+
+          <Route
+            path="/admin/service-amc"
+            element={<ServiceAmcManagement />}
+          />
+
+          <Route
+            path="/admin/service-requests"
+            element={<ServiceRequestManagement />}
+          />
+
+        </Route>
 
       </Route>
 
-      {/* Service Request Management */}
-      <Route
-        path="/admin/service-requests"
-        element={<ServiceRequestManagement />}
-      />
-
-
-      {/* =========================
-          SUPPORT
-      ========================== */}
-
-      <Route
-        path="/support/amc-request"
-        element={<ServiceRequestAmcEnquiry />}
-      />
-
-
-      {/* =========================
+      {/* =====================================================
           REDIRECTS
-      ========================== */}
+      ===================================================== */}
 
       <Route
         path="/portal"
@@ -229,10 +278,9 @@ export default function AppRoutes() {
         }
       />
 
-
-      {/* =========================
-          UNKNOWN URL
-      ========================== */}
+      {/* =====================================================
+          404 FALLBACK
+      ===================================================== */}
 
       <Route
         path="*"

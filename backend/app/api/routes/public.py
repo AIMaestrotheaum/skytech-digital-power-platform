@@ -1,8 +1,11 @@
+from datetime import datetime
+from math import isfinite
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from datetime import datetime
 
 from app.database import get_db
 
@@ -13,7 +16,7 @@ from app.database import get_db
 
 router = APIRouter(
     prefix="/public",
-    tags=["Public"]
+    tags=["Public"],
 )
 
 
@@ -22,57 +25,57 @@ router = APIRouter(
 # ============================================================
 
 class QuoteRequest(BaseModel):
-    customer_name: str
-    company: str | None = None
+    customer_name: str = Field(..., min_length=2, max_length=100)
+    company: str | None = Field(default=None, max_length=150)
     email: EmailStr
-    phone: str | None = None
-    industry: str | None = None
-    requirement: str
-    source: str = "website"
+    phone: str | None = Field(default=None, max_length=30)
+    industry: str | None = Field(default=None, max_length=100)
+    requirement: str = Field(..., min_length=5, max_length=5000)
+    source: str = Field(default="website", max_length=50)
 
 
 class ContactRequest(BaseModel):
-    customer_name: str
-    company: str | None = None
+    customer_name: str = Field(..., min_length=2, max_length=100)
+    company: str | None = Field(default=None, max_length=150)
     email: EmailStr | None = None
-    phone: str | None = None
-    requirement: str | None = None
-    message: str
+    phone: str | None = Field(default=None, max_length=30)
+    requirement: str | None = Field(default=None, max_length=1000)
+    message: str = Field(..., min_length=5, max_length=5000)
 
 
 class AMCRequest(BaseModel):
-    customer_name: str
-    company: str | None = None
+    customer_name: str = Field(..., min_length=2, max_length=100)
+    company: str | None = Field(default=None, max_length=150)
     email: EmailStr
-    phone: str | None = None
-    issue: str
-    priority: str = "normal"
+    phone: str | None = Field(default=None, max_length=30)
+    issue: str = Field(..., min_length=5, max_length=5000)
+    priority: Literal["low", "normal", "high", "critical"] = "normal"
 
 
 class UPSCalculatorRequest(BaseModel):
-    load_kw: float
-    power_factor: float = 0.8
-    safety_margin: float = 1.25
+    load_kw: float = Field(..., gt=0, le=100000)
+    power_factor: float = Field(default=0.8, gt=0, le=1)
+    safety_margin: float = Field(default=1.25, ge=1, le=5)
 
 
 class BatteryCalculatorRequest(BaseModel):
-    load_kw: float
-    backup_minutes: float
-    battery_voltage: float = 12
-    battery_ah: float = 100
-    efficiency: float = 0.9
-    depth_of_discharge: float = 0.8
+    load_kw: float = Field(..., gt=0, le=100000)
+    backup_minutes: float = Field(..., gt=0, le=100000)
+    battery_voltage: float = Field(default=12, gt=0, le=10000)
+    battery_ah: float = Field(default=100, gt=0, le=1000000)
+    efficiency: float = Field(default=0.9, gt=0, le=1)
+    depth_of_discharge: float = Field(default=0.8, gt=0, le=1)
 
 
 class ThreePhaseUPSRequest(BaseModel):
-    load_kw: float
-    power_factor: float = 0.8
-    safety_margin: float = 1.25
-    voltage: float = 415
+    load_kw: float = Field(..., gt=0, le=100000)
+    power_factor: float = Field(default=0.8, gt=0, le=1)
+    safety_margin: float = Field(default=1.25, ge=1, le=5)
+    voltage: float = Field(default=415, gt=0, le=10000)
 
 
 class AIPowerAssistantRequest(BaseModel):
-    question: str
+    question: str = Field(..., min_length=2, max_length=2000)
 
 
 # ============================================================
@@ -85,6 +88,17 @@ def generate_lead_code():
 
 def generate_request_code():
     return "SR-" + datetime.now().strftime("%y%m%d%H%M%S%f")
+
+
+def validate_finite_numbers(*values):
+    """
+    Reject NaN and Infinity values before calculations.
+    """
+    if not all(isfinite(value) for value in values):
+        raise HTTPException(
+            status_code=400,
+            detail="Numeric values must be finite.",
+        )
 
 
 # ============================================================
@@ -141,18 +155,24 @@ def create_quote_request(
         {
             "lead_code": lead_code,
             "customer_name": request.customer_name.strip(),
-            "company": request.company,
-            "email": str(request.email),
-            "phone": request.phone,
-            "industry": request.industry,
+            "company": request.company.strip() if request.company else None,
+            "email": str(request.email).strip().lower(),
+            "phone": request.phone.strip() if request.phone else None,
+            "industry": request.industry.strip() if request.industry else None,
             "requirement": request.requirement.strip(),
-            "source": request.source,
+            "source": "website",
         },
     )
 
     db.commit()
 
     lead = result.mappings().first()
+
+    if not lead:
+        raise HTTPException(
+            status_code=500,
+            detail="Quote request could not be created",
+        )
 
     return {
         "success": True,
@@ -218,9 +238,13 @@ def create_contact_request(
         {
             "lead_code": lead_code,
             "customer_name": request.customer_name.strip(),
-            "company": request.company,
-            "email": str(request.email),
-            "phone": request.phone,
+            "company": request.company.strip() if request.company else None,
+            "email": (
+                str(request.email).strip().lower()
+                if request.email
+                else None
+            ),
+            "phone": request.phone.strip() if request.phone else None,
             "requirement": requirement,
         },
     )
@@ -228,6 +252,12 @@ def create_contact_request(
     db.commit()
 
     lead = result.mappings().first()
+
+    if not lead:
+        raise HTTPException(
+            status_code=500,
+            detail="Contact request could not be created",
+        )
 
     return {
         "success": True,
@@ -258,14 +288,14 @@ def create_amc_request(
             detail="Issue is required",
         )
 
+    priority = request.priority.lower()
+
     allowed_priorities = {
         "low",
         "normal",
         "high",
         "critical",
     }
-
-    priority = request.priority.lower()
 
     if priority not in allowed_priorities:
         raise HTTPException(
@@ -300,7 +330,7 @@ def create_amc_request(
         {
             "request_code": request_code,
             "customer_name": request.customer_name.strip(),
-            "company": request.company,
+            "company": request.company.strip() if request.company else None,
             "issue": request.issue.strip(),
             "priority": priority,
         },
@@ -309,6 +339,12 @@ def create_amc_request(
     db.commit()
 
     service_request = result.mappings().first()
+
+    if not service_request:
+        raise HTTPException(
+            status_code=500,
+            detail="Support request could not be created",
+        )
 
     return {
         "success": True,
@@ -326,6 +362,12 @@ def create_amc_request(
 def calculate_ups(
     request: UPSCalculatorRequest,
 ):
+    validate_finite_numbers(
+        request.load_kw,
+        request.power_factor,
+        request.safety_margin,
+    )
+
     if request.load_kw <= 0:
         raise HTTPException(
             status_code=400,
@@ -392,13 +434,11 @@ def calculate_ups(
 
     return {
         "success": True,
-
         "input": {
             "load_kw": request.load_kw,
             "power_factor": request.power_factor,
             "safety_margin": request.safety_margin,
         },
-
         "calculation": {
             "apparent_power_kva": round(
                 apparent_power_kva,
@@ -409,7 +449,6 @@ def calculate_ups(
                 2,
             ),
         },
-
         "recommendation": {
             "ups_capacity_kva": selected_kva,
             "message": (
@@ -432,6 +471,15 @@ def calculate_ups(
 def calculate_battery(
     request: BatteryCalculatorRequest,
 ):
+    validate_finite_numbers(
+        request.load_kw,
+        request.backup_minutes,
+        request.battery_voltage,
+        request.battery_ah,
+        request.efficiency,
+        request.depth_of_discharge,
+    )
+
     if request.load_kw <= 0:
         raise HTTPException(
             status_code=400,
@@ -511,7 +559,6 @@ def calculate_battery(
 
     return {
         "success": True,
-
         "input": {
             "load_kw": request.load_kw,
             "backup_minutes": request.backup_minutes,
@@ -521,7 +568,6 @@ def calculate_battery(
             "depth_of_discharge":
                 request.depth_of_discharge,
         },
-
         "calculation": {
             "backup_hours": round(
                 backup_hours,
@@ -542,23 +588,19 @@ def calculate_battery(
                     2,
                 ),
         },
-
         "recommendation": {
             "batteries_required":
                 batteries_required,
-
             "total_nominal_energy_kwh":
                 round(
                     total_nominal_energy,
                     2,
                 ),
-
             "total_usable_energy_kwh":
                 round(
                     total_usable_energy,
                     2,
                 ),
-
             "message": (
                 "Recommended minimum battery "
                 f"quantity: {batteries_required}"
@@ -575,6 +617,13 @@ def calculate_battery(
 def calculate_three_phase_ups(
     request: ThreePhaseUPSRequest,
 ):
+    validate_finite_numbers(
+        request.load_kw,
+        request.power_factor,
+        request.safety_margin,
+        request.voltage,
+    )
+
     if request.load_kw <= 0:
         raise HTTPException(
             status_code=400,
@@ -654,41 +703,34 @@ def calculate_three_phase_ups(
 
     return {
         "success": True,
-
         "input": {
             "load_kw": request.load_kw,
             "power_factor": request.power_factor,
             "safety_margin": request.safety_margin,
             "voltage": request.voltage,
         },
-
         "calculation": {
             "apparent_power_kva":
                 round(
                     apparent_power_kva,
                     2,
                 ),
-
             "required_kva":
                 round(
                     required_kva,
                     2,
                 ),
-
             "estimated_current_amps":
                 round(
                     current_amps,
                     2,
                 ),
         },
-
         "recommendation": {
             "ups_capacity_kva":
                 recommended_kva,
-
             "phase":
                 "Three Phase",
-
             "message": (
                 f"Recommended three-phase UPS "
                 f"capacity: {recommended_kva} kVA"

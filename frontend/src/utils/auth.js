@@ -19,17 +19,37 @@ export function getUserEmail() {
   );
 }
 
+export function getUserId() {
+  return (
+    localStorage.getItem("user_id") ||
+    sessionStorage.getItem("user_id")
+  );
+}
+
+export function getUserName() {
+  return (
+    localStorage.getItem("name") ||
+    sessionStorage.getItem("name")
+  );
+}
+
 export function clearAuth() {
   /*
    * Clear authentication data
    */
   localStorage.removeItem("access_token");
+  localStorage.removeItem("token_type");
   localStorage.removeItem("role");
   localStorage.removeItem("user_email");
+  localStorage.removeItem("user_id");
+  localStorage.removeItem("name");
 
   sessionStorage.removeItem("access_token");
+  sessionStorage.removeItem("token_type");
   sessionStorage.removeItem("role");
   sessionStorage.removeItem("user_email");
+  sessionStorage.removeItem("user_id");
+  sessionStorage.removeItem("name");
 
   /*
    * Clear selected records

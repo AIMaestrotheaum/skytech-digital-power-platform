@@ -9,6 +9,8 @@ export default function ServiceAmcManagement() {
 
     if (!iframe) return;
 
+    let timeoutId = null;
+
     let searchInput = null;
     let searchHandler = null;
 
@@ -21,6 +23,8 @@ export default function ServiceAmcManagement() {
     let previousHandler = null;
     let nextHandler = null;
 
+    let mainElement = null;
+
     let currentSearch = "";
     let currentStatus = "";
     let currentPage = 1;
@@ -29,10 +33,9 @@ export default function ServiceAmcManagement() {
     // SELECTED AMC
     // =========================================================
 
-    const getSelectedAmcId = () =>
-      sessionStorage.getItem(
-        "selected_amc_id"
-      );
+    const getSelectedAmcId = () => {
+      return sessionStorage.getItem("selected_amc_id");
+    };
 
     // =========================================================
     // FIND ELEMENT
@@ -44,8 +47,7 @@ export default function ServiceAmcManagement() {
       selectors = []
     ) => {
       for (const selector of selectors) {
-        const element =
-          doc.querySelector(selector);
+        const element = doc.querySelector(selector);
 
         if (element) {
           return element;
@@ -83,11 +85,10 @@ export default function ServiceAmcManagement() {
           const combined =
             `${text} ${placeholder} ${aria} ${title}`;
 
-          return keywords.some(
-            (keyword) =>
-              combined.includes(
-                keyword.toLowerCase()
-              )
+          return keywords.some((keyword) =>
+            combined.includes(
+              keyword.toLowerCase()
+            )
           );
         }) || null
       );
@@ -100,20 +101,13 @@ export default function ServiceAmcManagement() {
     const formatDate = (date) => {
       if (!date) return "-";
 
-      const parsed =
-        new Date(date);
+      const parsed = new Date(date);
 
-      if (
-        Number.isNaN(
-          parsed.getTime()
-        )
-      ) {
+      if (Number.isNaN(parsed.getTime())) {
         return date;
       }
 
-      return parsed.toLocaleDateString(
-        "en-IN"
-      );
+      return parsed.toLocaleDateString("en-IN");
     };
 
     // =========================================================
@@ -135,27 +129,22 @@ export default function ServiceAmcManagement() {
         return "-";
       }
 
-      return `₹${value.toLocaleString(
-        "en-IN"
-      )}`;
+      return `₹${value.toLocaleString("en-IN")}`;
     };
 
     // =========================================================
     // FETCH AMC DETAIL
     // =========================================================
 
-    const fetchAmcDetail = async (
-      contractId
-    ) => {
+    const fetchAmcDetail = async (contractId) => {
       if (!contractId) {
         return null;
       }
 
       try {
-        const response =
-          await apiFetch(
-            `/api/admin/service-amc/${contractId}`
-          );
+        const response = await apiFetch(
+          `/api/admin/service-amc/${contractId}`
+        );
 
         if (!response.ok) {
           throw new Error(
@@ -163,13 +152,9 @@ export default function ServiceAmcManagement() {
           );
         }
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
-        console.log(
-          "AMC Detail:",
-          data
-        );
+        console.log("AMC Detail:", data);
 
         return data.contract || data;
       } catch (error) {
@@ -191,19 +176,16 @@ export default function ServiceAmcManagement() {
       payload
     ) => {
       if (!contractId) {
-        throw new Error(
-          "AMC ID is missing."
-        );
+        throw new Error("AMC ID is missing.");
       }
 
-      const response =
-        await apiFetch(
-          `/api/admin/service-amc/${contractId}`,
-          {
-            method: "PUT",
-            body: payload,
-          }
-        );
+      const response = await apiFetch(
+        `/api/admin/service-amc/${contractId}`,
+        {
+          method: "PUT",
+          body: payload,
+        }
+      );
 
       if (!response.ok) {
         let errorMessage =
@@ -221,12 +203,10 @@ export default function ServiceAmcManagement() {
               errorData.detail;
           }
         } catch {
-          // Keep default message
+          // Keep default error message.
         }
 
-        throw new Error(
-          errorMessage
-        );
+        throw new Error(errorMessage);
       }
 
       return await response.json();
@@ -251,11 +231,10 @@ export default function ServiceAmcManagement() {
         keywords,
         value
       ) => {
-        const element =
-          findElement(
-            doc,
-            keywords
-          );
+        const element = findElement(
+          doc,
+          keywords
+        );
 
         if (!element) return;
 
@@ -263,19 +242,13 @@ export default function ServiceAmcManagement() {
           element.tagName === "INPUT" ||
           element.tagName === "TEXTAREA"
         ) {
-          element.value =
-            value ??
-            "";
+          element.value = value ?? "";
         } else if (
           element.tagName === "SELECT"
         ) {
-          element.value =
-            value ??
-            "";
+          element.value = value ?? "";
         } else {
-          element.textContent =
-            value ??
-            "-";
+          element.textContent = value ?? "-";
         }
       };
 
@@ -307,9 +280,7 @@ export default function ServiceAmcManagement() {
           "contract value",
           "amc value",
         ],
-        formatAmount(
-          contract.amount
-        )
+        formatAmount(contract.amount)
       );
 
       replaceText(
@@ -322,9 +293,7 @@ export default function ServiceAmcManagement() {
           "start date",
           "start",
         ],
-        formatDate(
-          contract.start_date
-        )
+        formatDate(contract.start_date)
       );
 
       replaceText(
@@ -333,9 +302,7 @@ export default function ServiceAmcManagement() {
           "expiry",
           "expiry date",
         ],
-        formatDate(
-          contract.end_date
-        )
+        formatDate(contract.end_date)
       );
 
       sessionStorage.setItem(
@@ -371,14 +338,11 @@ export default function ServiceAmcManagement() {
       }
 
       const main =
-        doc.querySelector(
-          "main"
-        ) || doc.body;
+        doc.querySelector("main") ||
+        doc.body;
 
       const panel =
-        doc.createElement(
-          "div"
-        );
+        doc.createElement("div");
 
       panel.id =
         "skytech-amc-edit-panel";
@@ -448,7 +412,6 @@ export default function ServiceAmcManagement() {
             gap:18px;
           "
         >
-
           <div>
             <label
               style="
@@ -574,7 +537,6 @@ export default function ServiceAmcManagement() {
               "
             />
           </div>
-
         </div>
 
         <div
@@ -613,7 +575,6 @@ export default function ServiceAmcManagement() {
 
       main.prepend(panel);
 
-      // Set current status
       const statusInput =
         doc.querySelector(
           "#skytech-amc-status"
@@ -677,10 +638,8 @@ export default function ServiceAmcManagement() {
               )?.value || null;
 
             if (
-              amountRaw ===
-                "" ||
-              amountRaw ===
-                undefined
+              amountRaw === "" ||
+              amountRaw === undefined
             ) {
               throw new Error(
                 "Please enter the AMC amount."
@@ -709,14 +668,13 @@ export default function ServiceAmcManagement() {
               );
             }
 
-            saveButton.disabled =
-              true;
-
+            saveButton.disabled = true;
             saveButton.textContent =
               "Saving...";
 
-            message.textContent =
-              "";
+            if (message) {
+              message.textContent = "";
+            }
 
             const updated =
               await updateAmc(
@@ -735,13 +693,11 @@ export default function ServiceAmcManagement() {
               updated.contract ||
               updated;
 
-            // Update visible Stitch data
             injectAmcDetail(
               doc,
               updatedContract
             );
 
-            // Rebuild edit panel with latest data
             createEditPanel(
               doc,
               updatedContract
@@ -770,18 +726,32 @@ export default function ServiceAmcManagement() {
               error
             );
 
-            message.textContent =
-              error.message ||
-              "Failed to update AMC.";
+            const currentMessage =
+              doc.querySelector(
+                "#skytech-amc-message"
+              );
 
-            message.style.color =
-              "#c62828";
+            const currentSaveButton =
+              doc.querySelector(
+                "#skytech-amc-save"
+              );
 
-            saveButton.textContent =
-              "Save Changes";
+            if (currentMessage) {
+              currentMessage.textContent =
+                error.message ||
+                "Failed to update AMC.";
 
-            saveButton.disabled =
-              false;
+              currentMessage.style.color =
+                "#c62828";
+            }
+
+            if (currentSaveButton) {
+              currentSaveButton.textContent =
+                "Save Changes";
+
+              currentSaveButton.disabled =
+                false;
+            }
           }
         }
       );
@@ -796,20 +766,15 @@ export default function ServiceAmcManagement() {
       data
     ) => {
       const main =
-        doc.querySelector(
-          "main"
-        ) || doc.body;
+        doc.querySelector("main") ||
+        doc.body;
 
       const table =
-        main.querySelector(
-          "table"
-        );
+        main.querySelector("table");
 
       if (table) {
         const tbody =
-          table.querySelector(
-            "tbody"
-          );
+          table.querySelector("tbody");
 
         if (tbody) {
           tbody.innerHTML = "";
@@ -824,9 +789,7 @@ export default function ServiceAmcManagement() {
           contracts.forEach(
             (contract) => {
               const row =
-                doc.createElement(
-                  "tr"
-                );
+                doc.createElement("tr");
 
               row.innerHTML = `
                 <td>
@@ -854,9 +817,7 @@ export default function ServiceAmcManagement() {
                 </td>
 
                 <td>
-                  ${formatAmount(
-                    contract.amount
-                  )}
+                  ${formatAmount(contract.amount)}
                 </td>
 
                 <td>
@@ -864,21 +825,15 @@ export default function ServiceAmcManagement() {
                 </td>
 
                 <td>
-                  ${formatDate(
-                    contract.start_date
-                  )}
+                  ${formatDate(contract.start_date)}
                 </td>
 
                 <td>
-                  ${formatDate(
-                    contract.end_date
-                  )}
+                  ${formatDate(contract.end_date)}
                 </td>
               `;
 
-              tbody.appendChild(
-                row
-              );
+              tbody.appendChild(row);
 
               const contractLink =
                 row.querySelector(
@@ -940,13 +895,10 @@ export default function ServiceAmcManagement() {
 
       const paginationText =
         Array.from(
-          main.querySelectorAll(
-            "*"
-          )
+          main.querySelectorAll("*")
         ).find(
           (element) =>
-            element.children
-              .length === 0 &&
+            element.children.length === 0 &&
             /showing.*of/i.test(
               element.textContent.trim()
             )
@@ -954,19 +906,13 @@ export default function ServiceAmcManagement() {
 
       if (paginationText) {
         const total =
-          Number(
-            data.total || 0
-          );
+          Number(data.total || 0);
 
         const page =
-          Number(
-            data.page || 1
-          );
+          Number(data.page || 1);
 
         const limit =
-          Number(
-            data.limit || 10
-          );
+          Number(data.limit || 10);
 
         const contracts =
           Array.isArray(
@@ -999,17 +945,13 @@ export default function ServiceAmcManagement() {
 
       if (previousButton) {
         const disabled =
-          Number(
-            data.page || 1
-          ) <= 1;
+          Number(data.page || 1) <= 1;
 
         previousButton.disabled =
           disabled;
 
         previousButton.style.opacity =
-          disabled
-            ? "0.5"
-            : "1";
+          disabled ? "0.5" : "1";
 
         previousButton.style.pointerEvents =
           disabled
@@ -1023,9 +965,7 @@ export default function ServiceAmcManagement() {
 
       if (nextButton) {
         const disabled =
-          Number(
-            data.page || 1
-          ) >=
+          Number(data.page || 1) >=
           Number(
             data.total_pages || 1
           );
@@ -1034,9 +974,7 @@ export default function ServiceAmcManagement() {
           disabled;
 
         nextButton.style.opacity =
-          disabled
-            ? "0.5"
-            : "1";
+          disabled ? "0.5" : "1";
 
         nextButton.style.pointerEvents =
           disabled
@@ -1094,9 +1032,7 @@ export default function ServiceAmcManagement() {
           `/api/admin/service-amc?${params.toString()}`;
 
         const response =
-          await apiFetch(
-            endpoint
-          );
+          await apiFetch(endpoint);
 
         if (!response.ok) {
           throw new Error(
@@ -1127,8 +1063,6 @@ export default function ServiceAmcManagement() {
     // =========================================================
     // FIND BUTTON
     // =========================================================
-
-    let mainElement = null;
 
     const findButton = (
       keywords
@@ -1163,9 +1097,7 @@ export default function ServiceAmcManagement() {
 
             const title =
               button
-                .getAttribute(
-                  "title"
-                )
+                .getAttribute("title")
                 ?.toLowerCase() ||
               "";
 
@@ -1194,16 +1126,13 @@ export default function ServiceAmcManagement() {
       if (!doc) return;
 
       mainElement =
-        doc.querySelector(
-          "main"
-        ) || doc.body;
+        doc.querySelector("main") ||
+        doc.body;
 
       currentPage = 1;
 
       // Initial AMC fetch
-      fetchContracts(
-        doc
-      );
+      fetchContracts(doc);
 
       // =======================================================
       // SEARCH
@@ -1211,9 +1140,7 @@ export default function ServiceAmcManagement() {
 
       const inputs =
         Array.from(
-          doc.querySelectorAll(
-            "input"
-          )
+          doc.querySelectorAll("input")
         );
 
       searchInput =
@@ -1253,14 +1180,11 @@ export default function ServiceAmcManagement() {
 
         searchHandler = () => {
           currentSearch =
-            searchInput.value ||
-            "";
+            searchInput.value || "";
 
           currentPage = 1;
 
-          fetchContracts(
-            doc
-          );
+          fetchContracts(doc);
         };
 
         searchInput.addEventListener(
@@ -1275,9 +1199,7 @@ export default function ServiceAmcManagement() {
 
       const selects =
         Array.from(
-          doc.querySelectorAll(
-            "select"
-          )
+          doc.querySelectorAll("select")
         );
 
       selects.forEach(
@@ -1301,29 +1223,22 @@ export default function ServiceAmcManagement() {
 
           if (
             !statusSelect &&
-            combined.includes(
-              "status"
-            )
+            combined.includes("status")
           ) {
-            statusSelect =
-              select;
+            statusSelect = select;
 
             console.log(
               "AMC status filter connected"
             );
 
-            statusHandler =
-              () => {
-                currentStatus =
-                  statusSelect.value ||
-                  "";
+            statusHandler = () => {
+              currentStatus =
+                statusSelect.value || "";
 
-                currentPage = 1;
+              currentPage = 1;
 
-                fetchContracts(
-                  doc
-                );
-              };
+              fetchContracts(doc);
+            };
 
             statusSelect.addEventListener(
               "change",
@@ -1358,15 +1273,11 @@ export default function ServiceAmcManagement() {
             event.preventDefault();
 
             if (
-              currentPage >
-              1
+              currentPage > 1
             ) {
-              currentPage -=
-                1;
+              currentPage -= 1;
 
-              fetchContracts(
-                doc
-              );
+              fetchContracts(doc);
             }
           };
 
@@ -1381,12 +1292,9 @@ export default function ServiceAmcManagement() {
           (event) => {
             event.preventDefault();
 
-            currentPage +=
-              1;
+            currentPage += 1;
 
-            fetchContracts(
-              doc
-            );
+            fetchContracts(doc);
           };
 
         nextButton.addEventListener(
@@ -1436,10 +1344,19 @@ export default function ServiceAmcManagement() {
     // =========================================================
 
     const handleLoad = () => {
-      setTimeout(
-        setupPage,
-        300
-      );
+      if (timeoutId !== null) {
+        window.clearTimeout(
+          timeoutId
+        );
+      }
+
+      timeoutId =
+        window.setTimeout(
+          () => {
+            setupPage();
+          },
+          300
+        );
     };
 
     iframe.addEventListener(
@@ -1464,6 +1381,12 @@ export default function ServiceAmcManagement() {
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(
+          timeoutId
+        );
+      }
 
       if (
         searchInput &&
@@ -1508,11 +1431,13 @@ export default function ServiceAmcManagement() {
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Service AMC Management"
-      src="/stitch/service_amc_management_skytech_admin/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Service AMC Management"
+        src="/stitch/service_amc_management_skytech_admin/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

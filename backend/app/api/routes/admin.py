@@ -62,8 +62,15 @@ class ServiceRequestUpdateRequest(BaseModel):
 
 def get_admin_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
 ):
     token = credentials.credentials
+
+    if not JWT_SECRET:
+        raise HTTPException(
+            status_code=500,
+            detail="JWT secret is not configured",
+        )
 
     try:
         payload = jwt.decode(
@@ -87,7 +94,50 @@ def get_admin_user(
                 detail="Admin access required",
             )
 
-        return payload
+        user = db.execute(
+            text("""
+                SELECT
+                    id,
+                    name,
+                    email,
+                    role,
+                    is_active
+                FROM users
+                WHERE id = :user_id
+                LIMIT 1
+            """),
+            {
+                "user_id": user_id,
+            },
+        ).mappings().first()
+
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="User account not found",
+            )
+
+        if not user["is_active"]:
+            raise HTTPException(
+                status_code=403,
+                detail="User account is inactive",
+            )
+
+        if user["role"] != "admin":
+            raise HTTPException(
+                status_code=403,
+                detail="Admin access required",
+            )
+
+        return {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "role": user["role"],
+        }
+
+    except HTTPException:
+        raise
 
     except JWTError:
         raise HTTPException(

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { apiFetch } from "../utils/api";
 
 export default function QuoteManagement() {
   const iframeRef = useRef(null);
@@ -8,29 +9,24 @@ export default function QuoteManagement() {
 
     if (!iframe) return;
 
+    let iframeDocument = null;
     let searchInput = null;
     let searchHandler = null;
-
     let statusSelect = null;
     let statusHandler = null;
-
     let previousButton = null;
     let nextButton = null;
-
     let previousHandler = null;
     let nextHandler = null;
+    let mainElement = null;
+    let timeoutId = null;
 
     let currentSearch = "";
     let currentStatus = "";
     let currentPage = 1;
 
-    const getToken = () =>
-      localStorage.getItem("access_token") ||
-      sessionStorage.getItem("access_token");
-
     const renderQuotes = (doc, data) => {
-      const main =
-        doc.querySelector("main") || doc.body;
+      const main = doc.querySelector("main") || doc.body;
 
       const table = main.querySelector("table");
 
@@ -96,10 +92,9 @@ export default function QuoteManagement() {
 
             tbody.appendChild(row);
 
-            const quoteLink =
-              row.querySelector(
-                ".quote-detail-link"
-              );
+            const quoteLink = row.querySelector(
+              ".quote-detail-link"
+            );
 
             if (quoteLink) {
               quoteLink.addEventListener(
@@ -198,58 +193,79 @@ export default function QuoteManagement() {
     };
 
     const fetchQuotes = async (doc) => {
-      const token = getToken();
-
-      if (!token) {
-        console.error(
-          "No access token found."
-        );
-        return;
-      }
-
       try {
-        const url = new URL(
-          "http://127.0.0.1:8000/api/admin/quotes"
-        );
+        const params = new URLSearchParams();
 
         if (currentSearch.trim()) {
-          url.searchParams.set(
+          params.set(
             "search",
             currentSearch.trim()
           );
         }
 
         if (currentStatus.trim()) {
-          url.searchParams.set(
+          params.set(
             "status",
             currentStatus.trim()
           );
         }
 
-        url.searchParams.set(
+        params.set(
           "page",
           currentPage
         );
 
-        url.searchParams.set(
+        params.set(
           "limit",
           "10"
         );
 
-        const response = await fetch(
-          url.toString(),
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
+        const queryString =
+          params.toString();
+
+        const endpoint =
+          `/api/admin/quotes${
+            queryString
+              ? `?${queryString}`
+              : ""
+          }`;
+
+        const response =
+          await apiFetch(endpoint);
 
         if (!response.ok) {
-          throw new Error(
-            `Quote API failed: ${response.status}`
-          );
+          let message =
+            `Quote API failed: ${response.status}`;
+
+          try {
+            const errorData =
+              await response.json();
+
+            if (
+              typeof errorData?.detail ===
+              "string"
+            ) {
+              message =
+                errorData.detail;
+            } else if (
+              Array.isArray(
+                errorData?.detail
+              )
+            ) {
+              message =
+                errorData.detail
+                  .map(
+                    (item) =>
+                      item?.msg ||
+                      "Validation error"
+                  )
+                  .join(", ");
+            }
+          } catch {
+            // Keep the default status message.
+          }
+
+          throw new Error(message);
         }
 
         const data =
@@ -271,8 +287,6 @@ export default function QuoteManagement() {
         );
       }
     };
-
-    let mainElement = null;
 
     const findButton = (keywords) => {
       if (!mainElement) return null;
@@ -318,6 +332,8 @@ export default function QuoteManagement() {
         iframe.contentDocument;
 
       if (!doc) return;
+
+      iframeDocument = doc;
 
       mainElement =
         doc.querySelector("main") ||
@@ -496,8 +512,14 @@ export default function QuoteManagement() {
     };
 
     const handleLoad = () => {
-      setTimeout(
-        setupPage,
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(
+        () => {
+          setupPage();
+        },
         300
       );
     };
@@ -520,6 +542,10 @@ export default function QuoteManagement() {
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
 
       if (
         searchInput &&
@@ -564,11 +590,13 @@ export default function QuoteManagement() {
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Quote Management"
-      src="/stitch/quote_management_skytech_admin/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Quote Management"
+        src="/stitch/quote_management_skytech_admin/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

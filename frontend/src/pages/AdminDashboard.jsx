@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
+
 import { apiFetch } from "../utils/api";
+
 import { logout } from "../utils/auth";
 
 export default function AdminDashboard() {
@@ -9,6 +11,8 @@ export default function AdminDashboard() {
     const iframe = iframeRef.current;
 
     if (!iframe) return;
+
+    let timeoutId = null;
 
     // =========================================================
     // FIND TEXT ELEMENT
@@ -569,7 +573,7 @@ export default function AdminDashboard() {
     // =========================================================
 
     const handleLoad = () => {
-      setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         setupDashboard();
       }, 300);
     };
@@ -591,15 +595,21 @@ export default function AdminDashboard() {
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Admin Dashboard"
-      src="/stitch/admin_dashboard_skytech/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Admin Dashboard"
+        src="/stitch/admin_dashboard_skytech/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+
 import { apiFetch } from "../utils/api";
 
 export default function EditQuotation() {
@@ -8,6 +9,8 @@ export default function EditQuotation() {
     const iframe = iframeRef.current;
 
     if (!iframe) return;
+
+    let timeoutId = null;
 
     const quoteId =
       sessionStorage.getItem("selected_quote_id");
@@ -725,7 +728,7 @@ export default function EditQuotation() {
             saveButton.textContent =
               "Saved";
 
-            setTimeout(() => {
+            window.setTimeout(() => {
               const currentButton =
                 doc.querySelector(
                   "#skytech-save-quote"
@@ -818,7 +821,7 @@ export default function EditQuotation() {
     // =========================================================
 
     const handleLoad = () => {
-      setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         const doc =
           iframe.contentDocument;
 
@@ -850,15 +853,21 @@ export default function EditQuotation() {
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Edit Quotation"
-      src="/stitch/edit_quotation_skytech_admin/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Edit Quotation"
+        src="/stitch/edit_quotation_skytech_admin/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

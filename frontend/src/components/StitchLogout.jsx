@@ -1,121 +1,67 @@
 import { useEffect } from "react";
 import { logout } from "../utils/auth";
 
-export default function StitchLogout({
-  iframeRef,
-}) {
+export default function StitchLogout({ iframeRef }) {
   useEffect(() => {
     const iframe = iframeRef?.current;
 
-    if (!iframe) return;
+    if (!iframe) return undefined;
 
-    let logoutElements = [];
+    let cleanup = () => {};
 
     const setupLogout = () => {
       const doc = iframe.contentDocument;
 
       if (!doc) return;
 
+      cleanup();
+
       const elements = Array.from(
-        doc.querySelectorAll(
-          "button, a, [role='button']"
-        )
+        doc.querySelectorAll("button, a, [role='button']")
       );
 
-      logoutElements = elements.filter(
-        (element) => {
-          const text =
-            element.textContent
-              ?.trim()
-              .toLowerCase() || "";
+      const logoutElements = elements.filter((element) => {
+        const text = element.textContent?.trim().toLowerCase() || "";
+        const aria = element.getAttribute("aria-label")?.toLowerCase() || "";
+        const title = element.getAttribute("title")?.toLowerCase() || "";
 
-          const aria =
-            element
-              .getAttribute("aria-label")
-              ?.toLowerCase() || "";
+        const combined = `${text} ${aria} ${title}`;
 
-          const title =
-            element
-              .getAttribute("title")
-              ?.toLowerCase() || "";
+        return (
+          combined.includes("logout") ||
+          combined.includes("log out") ||
+          combined.includes("sign out") ||
+          combined.includes("signout")
+        );
+      });
 
-          const combined =
-            `${text} ${aria} ${title}`;
+      const handlers = logoutElements.map((element) => {
+        const handler = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          logout();
+        };
 
-          return (
-            combined.includes("logout") ||
-            combined.includes("log out") ||
-            combined.includes("sign out") ||
-            combined.includes("signout")
-          );
-        }
-      );
+        element.addEventListener("click", handler);
+        return { element, handler };
+      });
 
-      logoutElements.forEach(
-        (element) => {
-          const handler = (event) => {
-            event.preventDefault();
-
-            logout();
-          };
-
-          element.__skytechLogoutHandler =
-            handler;
-
-          element.addEventListener(
-            "click",
-            handler
-          );
-        }
-      );
-
-      console.log(
-        "SKYTECH logout connected:",
-        logoutElements.length
-      );
+      cleanup = () => {
+        handlers.forEach(({ element, handler }) => {
+          element.removeEventListener("click", handler);
+        });
+      };
     };
 
-    const handleLoad = () => {
-      setTimeout(
-        setupLogout,
-        300
-      );
-    };
+    iframe.addEventListener("load", setupLogout);
 
-    iframe.addEventListener(
-      "load",
-      handleLoad
-    );
-
-    if (
-      iframe.contentDocument
-        ?.readyState ===
-      "complete"
-    ) {
-      handleLoad();
+    if (iframe.contentDocument?.readyState === "complete") {
+      setupLogout();
     }
 
     return () => {
-      iframe.removeEventListener(
-        "load",
-        handleLoad
-      );
-
-      logoutElements.forEach(
-        (element) => {
-          const handler =
-            element.__skytechLogoutHandler;
-
-          if (handler) {
-            element.removeEventListener(
-              "click",
-              handler
-            );
-
-            delete element.__skytechLogoutHandler;
-          }
-        }
-      );
+      iframe.removeEventListener("load", setupLogout);
+      cleanup();
     };
   }, [iframeRef]);
 

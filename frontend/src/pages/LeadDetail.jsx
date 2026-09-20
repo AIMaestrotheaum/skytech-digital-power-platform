@@ -9,6 +9,8 @@ export default function LeadDetail() {
 
     if (!iframe) return;
 
+    let timeoutId = null;
+
     const getSelectedLeadId = () =>
       sessionStorage.getItem("selected_lead_id");
 
@@ -17,12 +19,9 @@ export default function LeadDetail() {
     // =========================================================
 
     const findTextElement = (doc, text) => {
-      const main =
-        doc.querySelector("main") || doc.body;
+      const main = doc.querySelector("main") || doc.body;
 
-      return Array.from(
-        main.querySelectorAll("*")
-      ).find(
+      return Array.from(main.querySelectorAll("*")).find(
         (element) =>
           element.children.length === 0 &&
           element.textContent.trim() === text
@@ -33,20 +32,11 @@ export default function LeadDetail() {
     // REPLACE EXACT TEXT
     // =========================================================
 
-    const replaceText = (
-      doc,
-      oldText,
-      newText
-    ) => {
-      const element = findTextElement(
-        doc,
-        oldText
-      );
+    const replaceText = (doc, oldText, newText) => {
+      const element = findTextElement(doc, oldText);
 
       if (element) {
-        element.textContent =
-          newText || "Not provided";
-
+        element.textContent = newText || "Not provided";
         return true;
       }
 
@@ -57,18 +47,12 @@ export default function LeadDetail() {
     // REPLACE TEXT AFTER LABEL
     // =========================================================
 
-    const replaceAfterLabel = (
-      doc,
-      label,
-      value
-    ) => {
-      const labelElement =
-        findTextElement(doc, label);
+    const replaceAfterLabel = (doc, label, value) => {
+      const labelElement = findTextElement(doc, label);
 
       if (!labelElement) return false;
 
-      const parent =
-        labelElement.parentElement;
+      const parent = labelElement.parentElement;
 
       if (!parent) return false;
 
@@ -81,9 +65,7 @@ export default function LeadDetail() {
       );
 
       if (leafElements.length > 0) {
-        leafElements[
-          leafElements.length - 1
-        ].textContent =
+        leafElements[leafElements.length - 1].textContent =
           value || "Not provided";
 
         return true;
@@ -96,28 +78,21 @@ export default function LeadDetail() {
     // CREATE EDIT PANEL
     // =========================================================
 
-    const createEditPanel = (
-      doc,
-      lead
-    ) => {
-      const main =
-        doc.querySelector("main") || doc.body;
+    const createEditPanel = (doc, lead) => {
+      const main = doc.querySelector("main") || doc.body;
 
       // Prevent duplicate panel
-      const existing =
-        doc.querySelector(
-          "#skytech-lead-edit-panel"
-        );
+      const existing = doc.querySelector(
+        "#skytech-lead-edit-panel"
+      );
 
       if (existing) {
         existing.remove();
       }
 
-      const panel =
-        doc.createElement("div");
+      const panel = doc.createElement("div");
 
-      panel.id =
-        "skytech-lead-edit-panel";
+      panel.id = "skytech-lead-edit-panel";
 
       panel.style.cssText = `
         margin: 24px 0;
@@ -338,61 +313,53 @@ export default function LeadDetail() {
       main.prepend(panel);
 
       // Set current status
-      const statusSelect =
-        doc.querySelector(
-          "#lead-edit-status"
-        );
+      const statusSelect = doc.querySelector(
+        "#lead-edit-status"
+      );
 
       if (statusSelect) {
-        statusSelect.value =
-          lead.status || "new";
+        statusSelect.value = lead.status || "new";
       }
 
-      const saveButton =
-        doc.querySelector(
-          "#lead-save-button"
-        );
+      const saveButton = doc.querySelector(
+        "#lead-save-button"
+      );
 
-      const message =
-        doc.querySelector(
-          "#lead-save-message"
-        );
+      const message = doc.querySelector(
+        "#lead-save-message"
+      );
 
       if (!saveButton) return;
 
       saveButton.addEventListener(
         "click",
         async () => {
-          const leadId =
-            getSelectedLeadId();
+          const leadId = getSelectedLeadId();
 
           if (!leadId) {
-            message.textContent =
-              "Lead ID not found.";
-            message.style.color =
-              "#c62828";
+            message.textContent = "Lead ID not found.";
+            message.style.color = "#c62828";
             return;
           }
 
           const status =
-            doc.querySelector(
-              "#lead-edit-status"
-            )?.value || null;
+            doc.querySelector("#lead-edit-status")?.value ||
+            null;
 
           const assignedTo =
-            doc.querySelector(
-              "#lead-edit-assigned"
-            )?.value.trim() || null;
+            doc
+              .querySelector("#lead-edit-assigned")
+              ?.value.trim() || null;
 
           const industry =
-            doc.querySelector(
-              "#lead-edit-industry"
-            )?.value.trim() || null;
+            doc
+              .querySelector("#lead-edit-industry")
+              ?.value.trim() || null;
 
           const requirement =
-            doc.querySelector(
-              "#lead-edit-requirement"
-            )?.value.trim() || null;
+            doc
+              .querySelector("#lead-edit-requirement")
+              ?.value.trim() || null;
 
           const payload = {
             status,
@@ -404,46 +371,38 @@ export default function LeadDetail() {
           try {
             saveButton.disabled = true;
 
-            saveButton.textContent =
-              "Saving...";
+            saveButton.textContent = "Saving...";
 
             message.textContent = "";
 
-            const response =
-              await apiFetch(
-                `/api/admin/leads/${leadId}`,
-                {
-                  method: "PUT",
-                  body: payload,
-                }
-              );
+            const response = await apiFetch(
+              `/api/admin/leads/${leadId}`,
+              {
+                method: "PUT",
+                body: payload,
+              }
+            );
 
             if (!response.ok) {
               let errorMessage =
                 `Update failed: ${response.status}`;
 
               try {
-                const errorData =
-                  await response.json();
+                const errorData = await response.json();
 
                 if (
-                  typeof errorData.detail ===
-                  "string"
+                  typeof errorData.detail === "string"
                 ) {
-                  errorMessage =
-                    errorData.detail;
+                  errorMessage = errorData.detail;
                 }
               } catch {
                 // Keep default message
               }
 
-              throw new Error(
-                errorMessage
-              );
+              throw new Error(errorMessage);
             }
 
-            const updatedLead =
-              await response.json();
+            const updatedLead = await response.json();
 
             console.log(
               "Lead updated:",
@@ -453,21 +412,15 @@ export default function LeadDetail() {
             message.textContent =
               "Lead updated successfully.";
 
-            message.style.color =
-              "#16803c";
+            message.style.color = "#16803c";
 
             // Refresh visible Stitch data
-            renderLead(
-              doc,
-              updatedLead
-            );
+            renderLead(doc, updatedLead);
 
-            saveButton.textContent =
-              "Saved";
+            saveButton.textContent = "Saved";
 
             setTimeout(() => {
-              saveButton.textContent =
-                "Save Changes";
+              saveButton.textContent = "Save Changes";
             }, 1500);
           } catch (error) {
             console.error(
@@ -479,14 +432,11 @@ export default function LeadDetail() {
               error.message ||
               "Failed to update lead.";
 
-            message.style.color =
-              "#c62828";
+            message.style.color = "#c62828";
 
-            saveButton.textContent =
-              "Save Changes";
+            saveButton.textContent = "Save Changes";
           } finally {
-            saveButton.disabled =
-              false;
+            saveButton.disabled = false;
           }
         }
       );
@@ -496,10 +446,7 @@ export default function LeadDetail() {
     // RENDER LEAD
     // =========================================================
 
-    const renderLead = (
-      doc,
-      lead
-    ) => {
+    const renderLead = (doc, lead) => {
       replaceText(
         doc,
         "LD-2024-8901",
@@ -561,16 +508,12 @@ export default function LeadDetail() {
       );
 
       if (lead.created_at) {
-        const createdDate =
-          new Date(
-            lead.created_at
-          ).toLocaleString(
-            "en-IN",
-            {
-              dateStyle: "medium",
-              timeStyle: "short",
-            }
-          );
+        const createdDate = new Date(
+          lead.created_at
+        ).toLocaleString("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
 
         replaceText(
           doc,
@@ -586,29 +529,24 @@ export default function LeadDetail() {
       );
 
       // Update edit fields if panel already exists
-      const statusSelect =
-        doc.querySelector(
-          "#lead-edit-status"
-        );
+      const statusSelect = doc.querySelector(
+        "#lead-edit-status"
+      );
 
-      const assignedInput =
-        doc.querySelector(
-          "#lead-edit-assigned"
-        );
+      const assignedInput = doc.querySelector(
+        "#lead-edit-assigned"
+      );
 
-      const industryInput =
-        doc.querySelector(
-          "#lead-edit-industry"
-        );
+      const industryInput = doc.querySelector(
+        "#lead-edit-industry"
+      );
 
-      const requirementInput =
-        doc.querySelector(
-          "#lead-edit-requirement"
-        );
+      const requirementInput = doc.querySelector(
+        "#lead-edit-requirement"
+      );
 
       if (statusSelect) {
-        statusSelect.value =
-          lead.status || "new";
+        statusSelect.value = lead.status || "new";
       }
 
       if (assignedInput) {
@@ -632,13 +570,11 @@ export default function LeadDetail() {
     // =========================================================
 
     const loadLead = async () => {
-      const doc =
-        iframe.contentDocument;
+      const doc = iframe.contentDocument;
 
       if (!doc) return;
 
-      const leadId =
-        getSelectedLeadId();
+      const leadId = getSelectedLeadId();
 
       if (!leadId) {
         console.error(
@@ -648,10 +584,9 @@ export default function LeadDetail() {
       }
 
       try {
-        const response =
-          await apiFetch(
-            `/api/admin/leads/${leadId}`
-          );
+        const response = await apiFetch(
+          `/api/admin/leads/${leadId}`
+        );
 
         if (!response.ok) {
           throw new Error(
@@ -659,8 +594,7 @@ export default function LeadDetail() {
           );
         }
 
-        const lead =
-          await response.json();
+        const lead = await response.json();
 
         console.log(
           "Selected Lead:",
@@ -668,16 +602,10 @@ export default function LeadDetail() {
         );
 
         // Render existing Stitch fields
-        renderLead(
-          doc,
-          lead
-        );
+        renderLead(doc, lead);
 
         // Add editable admin panel
-        createEditPanel(
-          doc,
-          lead
-        );
+        createEditPanel(doc, lead);
 
         console.log(
           "Lead detail rendered successfully."
@@ -695,7 +623,7 @@ export default function LeadDetail() {
     // =========================================================
 
     const handleLoad = () => {
-      setTimeout(
+      timeoutId = window.setTimeout(
         loadLead,
         300
       );
@@ -707,8 +635,7 @@ export default function LeadDetail() {
     );
 
     if (
-      iframe.contentDocument
-        ?.readyState ===
+      iframe.contentDocument?.readyState ===
       "complete"
     ) {
       handleLoad();
@@ -723,15 +650,21 @@ export default function LeadDetail() {
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Lead Detail"
-      src="/stitch/lead_detail_skytech_admin/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Lead Detail"
+        src="/stitch/lead_detail_skytech_admin/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

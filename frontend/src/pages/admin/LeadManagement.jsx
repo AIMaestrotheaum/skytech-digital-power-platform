@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { apiFetch } from "../../utils/api";
 
 export default function LeadManagement() {
   const iframeRef = useRef(null);
@@ -10,134 +9,325 @@ export default function LeadManagement() {
   useEffect(() => {
     const iframe = iframeRef.current;
 
+    if (!iframe) {
+      return undefined;
+    }
+
+    let timeoutId = null;
+    let isMounted = true;
+
+    const getErrorMessage = async (response) => {
+      let message =
+        `Leads API failed: ${response.status}`;
+
+      try {
+        const errorData =
+          await response.json();
+
+        if (errorData?.detail) {
+          message =
+            typeof errorData.detail === "string"
+              ? errorData.detail
+              : JSON.stringify(
+                  errorData.detail
+                );
+        }
+      } catch {
+        // Ignore JSON parsing errors.
+      }
+
+      return message;
+    };
+
+    const createCell = (doc, value) => {
+      const cell = doc.createElement("td");
+
+      cell.textContent =
+        value === null ||
+        value === undefined ||
+        value === ""
+          ? "-"
+          : String(value);
+
+      return cell;
+    };
+
+    const formatDate = (value) => {
+      if (!value) {
+        return "-";
+      }
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "-";
+      }
+
+      return date.toLocaleDateString(
+        "en-IN"
+      );
+    };
+
     const loadLeads = async () => {
       try {
-        const token =
-          localStorage.getItem("access_token") ||
-          sessionStorage.getItem("access_token");
-
-        if (!token) return;
-
-        const response = await fetch(
-          `${API_BASE}/api/admin/leads`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const response = await apiFetch(
+          "/api/admin/leads"
         );
 
         if (!response.ok) {
-          console.error("Leads API error:", response.status);
+          throw new Error(
+            await getErrorMessage(response)
+          );
+        }
+
+        const data =
+          await response.json();
+
+        if (!isMounted) {
           return;
         }
 
-        const data = await response.json();
+        const doc =
+          iframe.contentDocument ||
+          iframe.contentWindow?.document;
 
-        const doc = iframe?.contentDocument;
-        if (!doc) return;
-
-        console.log("Admin leads:", data);
+        if (!doc) {
+          return;
+        }
 
         /*
-         * Find the main table in the Stitch page.
+         * API may return:
+         *
+         * [...]
+         *
+         * or:
+         *
+         * { leads: [...] }
          */
-        const table = doc.querySelector("table");
+        const leads = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.leads)
+          ? data.leads
+          : [];
+
+        /*
+         * Find the Stitch lead table.
+         */
+        const table =
+          doc.querySelector("table");
 
         if (!table) {
-          console.warn("Lead table not found in Stitch page.");
+          console.warn(
+            "Lead table not found in Stitch page."
+          );
           return;
         }
 
-        const tbody = table.querySelector("tbody");
+        const tbody =
+          table.querySelector("tbody");
 
-        if (!tbody) return;
+        if (!tbody) {
+          console.warn(
+            "Lead table body not found."
+          );
+          return;
+        }
 
+        /*
+         * Clear existing demo rows.
+         */
         tbody.innerHTML = "";
 
-        const leads = Array.isArray(data)
-          ? data
-          : data.leads || [];
-
+        /*
+         * Render API leads.
+         */
         leads.forEach((lead) => {
-          const row = doc.createElement("tr");
+          const row =
+            doc.createElement("tr");
 
-          row.innerHTML = `
-            <td>${lead.lead_code || "-"}</td>
-            <td>${lead.customer_name || "-"}</td>
-            <td>${lead.company || "-"}</td>
-            <td>${lead.industry || "-"}</td>
-            <td>${lead.requirement || "-"}</td>
-            <td>${lead.status || "-"}</td>
-            <td>${lead.assigned_to || "-"}</td>
-            <td>
-              ${
+          row.appendChild(
+            createCell(
+              doc,
+              lead.lead_code
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              lead.customer_name
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              lead.company
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              lead.industry
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              lead.requirement
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              lead.status
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              lead.assigned_to
+            )
+          );
+
+          row.appendChild(
+            createCell(
+              doc,
+              formatDate(
                 lead.created_at
-                  ? new Date(lead.created_at).toLocaleDateString("en-IN")
-                  : "-"
-              }
-            </td>
-          `;
+              )
+            )
+          );
 
           /*
-           * Clicking a lead stores its ID and opens
-           * the Lead Detail page.
+           * Make the complete row clickable.
            */
           row.style.cursor = "pointer";
 
-          row.addEventListener("click", () => {
-            sessionStorage.setItem(
-              "selected_lead_id",
-              String(lead.id)
-            );
+          row.addEventListener(
+            "click",
+            () => {
+              if (
+                lead.id === undefined ||
+                lead.id === null
+              ) {
+                return;
+              }
 
-            navigate("/admin/leads/detail");
-          });
+              sessionStorage.setItem(
+                "selected_lead_id",
+                String(lead.id)
+              );
+
+              /*
+               * IMPORTANT:
+               * AppRoutes uses /admin/leads/:id
+               */
+              navigate(
+                `/admin/leads/${lead.id}`
+              );
+            }
+          );
 
           tbody.appendChild(row);
         });
 
         /*
-         * Update simple dashboard/count values if present.
+         * Update common Stitch lead count.
          */
-        const countElements = [
-          ...doc.querySelectorAll("*"),
-        ].filter(
-          (el) =>
-            el.children.length === 0 &&
-            el.textContent?.trim() === "24"
-        );
+        const countElements =
+          Array.from(
+            doc.querySelectorAll("*")
+          ).filter((el) => {
+            if (el.children.length !== 0) {
+              return false;
+            }
+
+            const text =
+              el.textContent?.trim();
+
+            return (
+              text === "24" ||
+              text === "Total Leads"
+            );
+          });
 
         countElements.forEach((el) => {
-          el.textContent = String(leads.length);
+          if (
+            el.textContent?.trim() ===
+            "24"
+          ) {
+            el.textContent =
+              String(leads.length);
+          }
         });
       } catch (error) {
-        console.error("Lead management error:", error);
+        if (!isMounted) {
+          return;
+        }
+
+        console.error(
+          "Lead Management Error:",
+          error
+        );
       }
     };
 
     const handleLoad = () => {
-      loadLeads();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        loadLeads();
+      }, 300);
     };
 
-    iframe?.addEventListener("load", handleLoad);
+    iframe.addEventListener(
+      "load",
+      handleLoad
+    );
+
+    /*
+     * Handle an iframe that is already loaded.
+     */
+    if (
+      iframe.contentDocument?.readyState ===
+      "complete"
+    ) {
+      handleLoad();
+    }
 
     return () => {
-      iframe?.removeEventListener("load", handleLoad);
+      isMounted = false;
+
+      iframe.removeEventListener(
+        "load",
+        handleLoad
+      );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, [navigate]);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Lead Management"
-      src="/stitch/lead_management_skytech_admin/code.html"
-      style={{
-        width: "100%",
-        height: "100vh",
-        border: 0,
-        display: "block",
-      }}
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Lead Management"
+        src="/stitch/lead_management_skytech_admin/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

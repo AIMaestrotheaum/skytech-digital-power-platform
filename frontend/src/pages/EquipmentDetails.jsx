@@ -7,10 +7,20 @@ export default function EquipmentDetails() {
   useEffect(() => {
     const iframe = iframeRef.current;
 
-    if (!iframe) return;
+    if (!iframe) {
+      return undefined;
+    }
 
-    const replaceText = (doc, possibleTexts, newValue) => {
-      const elements = Array.from(doc.querySelectorAll("*"));
+    let timeoutId = null;
+
+    const replaceText = (
+      doc,
+      possibleTexts,
+      newValue
+    ) => {
+      const elements = Array.from(
+        doc.querySelectorAll("*")
+      );
 
       const element = elements.find((el) => {
         if (el.children.length !== 0) {
@@ -19,11 +29,15 @@ export default function EquipmentDetails() {
 
         const text = el.textContent.trim();
 
-        return possibleTexts.some((item) => text === item);
+        return possibleTexts.some(
+          (item) => text === item
+        );
       });
 
       if (element) {
-        element.textContent = newValue ?? "-";
+        element.textContent =
+          newValue ?? "-";
+
         return true;
       }
 
@@ -32,48 +46,62 @@ export default function EquipmentDetails() {
 
     const fetchEquipment = async (doc) => {
       try {
-        const response = await apiFetch("/api/customer/equipment");
+        const response = await apiFetch(
+          "/api/customer/equipment"
+        );
 
         if (!response.ok) {
-          let errorMessage = `Equipment API failed: ${response.status}`;
+          let errorMessage =
+            `Equipment API failed: ${response.status}`;
 
           try {
-            const errorData = await response.json();
+            const errorData =
+              await response.json();
 
             if (errorData?.detail) {
               errorMessage =
-                typeof errorData.detail === "string"
+                typeof errorData.detail ===
+                "string"
                   ? errorData.detail
-                  : JSON.stringify(errorData.detail);
+                  : JSON.stringify(
+                      errorData.detail
+                    );
             }
           } catch {
-            // Ignore JSON parsing errors
+            // Ignore JSON parsing errors.
           }
 
           throw new Error(errorMessage);
         }
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
-        console.log("Customer Equipment API:", data);
+        console.log(
+          "Customer Equipment API:",
+          data
+        );
 
         /*
-         * API may return either:
+         * API may return:
          * { equipment: [...] }
          * or directly [...]
          */
-        const equipment = Array.isArray(data)
-          ? data
-          : data.equipment || [];
+        const equipment =
+          Array.isArray(data)
+            ? data
+            : data.equipment || [];
 
         if (equipment.length === 0) {
-          console.log("No equipment found for customer.");
+          console.log(
+            "No equipment found for customer."
+          );
           return;
         }
 
         /*
-         * Use the first equipment record for the
-         * Stitch equipment details screen.
+         * Use the first equipment record
+         * for the Stitch equipment details screen.
          */
         const item = equipment[0];
 
@@ -205,37 +233,58 @@ export default function EquipmentDetails() {
           item.status || "-"
         );
       } catch (error) {
-        console.error("Customer Equipment Error:", error);
+        console.error(
+          "Customer Equipment Error:",
+          error
+        );
       }
     };
 
     const handleLoad = () => {
-      setTimeout(() => {
-        const doc = iframe.contentDocument;
+      timeoutId = window.setTimeout(() => {
+        const doc =
+          iframe.contentDocument;
 
-        if (!doc) return;
+        if (!doc) {
+          return;
+        }
 
         fetchEquipment(doc);
       }, 300);
     };
 
-    iframe.addEventListener("load", handleLoad);
+    iframe.addEventListener(
+      "load",
+      handleLoad
+    );
 
-    if (iframe.contentDocument?.readyState === "complete") {
+    if (
+      iframe.contentDocument?.readyState ===
+      "complete"
+    ) {
       handleLoad();
     }
 
     return () => {
-      iframe.removeEventListener("load", handleLoad);
+      iframe.removeEventListener(
+        "load",
+        handleLoad
+      );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Equipment Details"
-      src="/stitch/equipment_details_skytech_portal/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Equipment Details"
+        src="/stitch/equipment_details_skytech_portal/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

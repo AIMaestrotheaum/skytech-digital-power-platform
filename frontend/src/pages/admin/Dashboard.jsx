@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-
-const API_BASE = "http://127.0.0.1:8000";
+import { apiFetch } from "../../utils/api";
 
 export default function AdminDashboard() {
   const iframeRef = useRef(null);
@@ -8,104 +7,222 @@ export default function AdminDashboard() {
   useEffect(() => {
     const iframe = iframeRef.current;
 
+    if (!iframe) {
+      return undefined;
+    }
+
+    let timeoutId = null;
+    let isMounted = true;
+
+    const replaceText = (
+      doc,
+      possibleTexts,
+      newValue
+    ) => {
+      const elements = Array.from(
+        doc.querySelectorAll("*")
+      );
+
+      const element = elements.find((el) => {
+        if (el.children.length !== 0) {
+          return false;
+        }
+
+        const text =
+          el.textContent?.trim();
+
+        return possibleTexts.some(
+          (item) =>
+            text?.toLowerCase() ===
+            item.toLowerCase()
+        );
+      });
+
+      if (!element) {
+        return false;
+      }
+
+      element.textContent =
+        newValue ?? "-";
+
+      return true;
+    };
+
+    const getErrorMessage = async (response) => {
+      let message =
+        `Admin Dashboard API failed: ${response.status}`;
+
+      try {
+        const errorData =
+          await response.json();
+
+        if (errorData?.detail) {
+          message =
+            typeof errorData.detail ===
+            "string"
+              ? errorData.detail
+              : JSON.stringify(
+                  errorData.detail
+                );
+        }
+      } catch {
+        // Ignore JSON parsing errors.
+      }
+
+      return message;
+    };
+
     const loadDashboard = async () => {
       try {
-        const token =
-          localStorage.getItem("access_token") ||
-          sessionStorage.getItem("access_token");
-
-        if (!token) return;
-
-        const response = await fetch(
-          `${API_BASE}/api/admin/dashboard`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+        const response = await apiFetch(
+          "/api/admin/dashboard"
         );
 
         if (!response.ok) {
-          console.error("Dashboard API error:", response.status);
+          throw new Error(
+            await getErrorMessage(response)
+          );
+        }
+
+        const data =
+          await response.json();
+
+        if (!isMounted) {
           return;
         }
 
-        const data = await response.json();
+        const doc =
+          iframe.contentDocument ||
+          iframe.contentWindow?.document;
 
-        const doc = iframe?.contentDocument;
-        if (!doc) return;
+        if (!doc) {
+          return;
+        }
 
-        /*
-         * Update dashboard values while preserving
-         * the original Stitch design.
-         */
+        const totalLeads =
+          data?.total_leads ?? 0;
 
-        const text = doc.body.innerText;
+        const pendingQuotes =
+          data?.pending_quotes ?? 0;
 
-        // Dashboard statistics
-        const values = {
-          totalLeads: data.total_leads ?? 0,
-          pendingQuotes: data.pending_quotes ?? 0,
-          activeAmc: data.active_amc ?? 0,
-          monthlyRevenue: data.monthly_revenue ?? 0,
-          openServiceRequests: data.open_service_requests ?? 0,
-        };
+        const activeAmc =
+          data?.active_amc ?? 0;
 
-        // Try to update elements based on their visible text.
-        const allElements = [...doc.body.querySelectorAll("*")];
+        const monthlyRevenue =
+          data?.monthly_revenue ?? 0;
 
-        const replaceText = (oldText, newText) => {
-          const element = allElements.find(
-            (el) =>
-              el.children.length === 0 &&
-              el.textContent?.trim() === oldText
-          );
-
-          if (element) {
-            element.textContent = String(newText);
-          }
-        };
+        const openServiceRequests =
+          data?.open_service_requests ?? 0;
 
         /*
-         * Common Stitch demo values.
-         * These replacements are safe even if some values
-         * are not present in the current Stitch screen.
+         * Total leads
          */
+        replaceText(
+          doc,
+          ["24"],
+          String(totalLeads)
+        );
 
-        replaceText("24", values.totalLeads);
-        replaceText("12", values.pendingQuotes);
-        replaceText("8", values.activeAmc);
-        replaceText("₹1.2L", `₹${Number(values.monthlyRevenue).toLocaleString("en-IN")}`);
-        replaceText("3", values.openServiceRequests);
+        /*
+         * Pending quotes
+         */
+        replaceText(
+          doc,
+          ["12"],
+          String(pendingQuotes)
+        );
 
-        console.log("Admin dashboard data:", data);
+        /*
+         * Active AMC
+         */
+        replaceText(
+          doc,
+          ["8"],
+          String(activeAmc)
+        );
+
+        /*
+         * Monthly revenue
+         */
+        replaceText(
+          doc,
+          ["₹1.2L"],
+          `₹${Number(
+            monthlyRevenue
+          ).toLocaleString("en-IN")}`
+        );
+
+        /*
+         * Open service requests
+         */
+        replaceText(
+          doc,
+          ["3"],
+          String(openServiceRequests)
+        );
       } catch (error) {
-        console.error("Admin dashboard error:", error);
+        if (!isMounted) {
+          return;
+        }
+
+        console.error(
+          "Admin Dashboard Error:",
+          error
+        );
       }
     };
 
     const handleLoad = () => {
-      loadDashboard();
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        loadDashboard();
+      }, 300);
     };
 
-    iframe?.addEventListener("load", handleLoad);
+    iframe.addEventListener(
+      "load",
+      handleLoad
+    );
+
+    /*
+     * Handle an iframe that has already loaded.
+     */
+    if (
+      iframe.contentDocument?.readyState ===
+      "complete"
+    ) {
+      handleLoad();
+    }
 
     return () => {
-      iframe?.removeEventListener("load", handleLoad);
+      isMounted = false;
+
+      iframe.removeEventListener(
+        "load",
+        handleLoad
+      );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Admin Dashboard"
-      src="/stitch/admin_dashboard_skytech/code.html"
-      style={{
-        width: "100%",
-        height: "100vh",
-        border: 0,
-        display: "block",
-      }}
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Admin Dashboard"
+        src="/stitch/admin_dashboard_skytech/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

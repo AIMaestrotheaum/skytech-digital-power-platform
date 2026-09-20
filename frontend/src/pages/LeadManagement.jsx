@@ -9,6 +9,8 @@ export default function LeadManagement() {
 
     if (!iframe) return;
 
+    let timeoutId = null;
+
     let searchHandler = null;
     let searchInput = null;
 
@@ -206,6 +208,7 @@ export default function LeadManagement() {
         const total = Number(data?.total || 0);
         const page = Number(data?.page || 1);
         const limit = Number(data?.limit || 10);
+
         const leads = Array.isArray(data?.leads)
           ? data.leads
           : [];
@@ -606,7 +609,11 @@ export default function LeadManagement() {
     // =========================================================
 
     const handleLoad = () => {
-      setTimeout(() => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(() => {
         setupPage();
       }, 300);
     };
@@ -632,6 +639,10 @@ export default function LeadManagement() {
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
 
       if (
         searchInput &&
@@ -686,11 +697,13 @@ export default function LeadManagement() {
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Lead Management"
-      src="/stitch/lead_management_skytech_admin/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Lead Management"
+        src="/stitch/lead_management_skytech_admin/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

@@ -11,56 +11,51 @@ export async function apiFetch(
   endpoint,
   options = {}
 ) {
-  const token =
-    getAccessToken();
+  const token = getAccessToken();
 
   const headers = {
     ...(options.headers || {}),
   };
 
   if (token) {
-    headers.Authorization =
-      `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
+
+  let body = options.body;
 
   if (
-    options.body &&
-    typeof options.body !==
-      "string"
+    body &&
+    typeof body !== "string" &&
+    !(body instanceof FormData)
   ) {
-    headers["Content-Type"] =
-      "application/json";
-
-    options.body =
-      JSON.stringify(options.body);
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(body);
   }
 
-  const response =
-    await fetch(
-      `${API_BASE}${endpoint}`,
-      {
-        ...options,
-        headers,
-      }
-    );
+  const response = await fetch(
+    `${API_BASE}${endpoint}`,
+    {
+      ...options,
+      headers,
+      body,
+    }
+  );
 
-  /*
-   * Unauthorized / expired JWT
-   */
-  if (response.status === 401) {
+  // Authentication endpoints should handle their own 401 errors.
+  const isAuthEndpoint =
+    endpoint === "/api/auth/login" ||
+    endpoint === "/api/auth/register-customer";
+
+  if (response.status === 401 && !isAuthEndpoint) {
     clearAuth();
 
-    window.location.href =
-      "/portal/login";
+    window.location.href = "/portal/login";
 
     throw new Error(
       "Your session has expired. Please login again."
     );
   }
 
-  /*
-   * Forbidden
-   */
   if (response.status === 403) {
     throw new Error(
       "You do not have permission to perform this action."

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { apiFetch } from "../utils/api";
 
 export default function ContactUs() {
   const iframeRef = useRef(null);
@@ -6,484 +7,355 @@ export default function ContactUs() {
   useEffect(() => {
     const iframe = iframeRef.current;
 
-    if (!iframe) return;
-
-    const API_URL =
-      "http://127.0.0.1:8000/api/public/contact";
+    if (!iframe) return undefined;
 
     let form = null;
     let submitHandler = null;
+    let timeoutId = null;
 
-    /*
-     * ---------------------------------------------------------
-     * GET FIELD BY LABEL / ATTRIBUTE
-     * ---------------------------------------------------------
-     */
-    const findInputByKeywords = (
-      doc,
-      keywords
-    ) => {
-      const inputs = Array.from(
-        doc.querySelectorAll(
-          "input, textarea, select"
-        )
+    const findField = (doc, keywords, container = doc) => {
+      const fields = Array.from(
+        container.querySelectorAll("input, textarea, select")
       );
 
       return (
-        inputs.find((element) => {
-          const name =
-            element
-              .getAttribute("name")
-              ?.toLowerCase() || "";
-
-          const id =
-            element
-              .getAttribute("id")
-              ?.toLowerCase() || "";
-
+        fields.find((field) => {
+          const name = field.getAttribute("name")?.toLowerCase() || "";
+          const id = field.getAttribute("id")?.toLowerCase() || "";
           const placeholder =
-            element
-              .getAttribute("placeholder")
-              ?.toLowerCase() || "";
-
+            field.getAttribute("placeholder")?.toLowerCase() || "";
           const aria =
-            element
-              .getAttribute("aria-label")
-              ?.toLowerCase() || "";
+            field.getAttribute("aria-label")?.toLowerCase() || "";
 
-          const combined =
-            `${name} ${id} ${placeholder} ${aria}`;
+          const combined = `${name} ${id} ${placeholder} ${aria}`;
 
           return keywords.some((keyword) =>
-            combined.includes(
-              keyword.toLowerCase()
-            )
+            combined.includes(keyword.toLowerCase())
           );
         }) || null
       );
     };
 
-    /*
-     * ---------------------------------------------------------
-     * FIND CONTACT FORM
-     * ---------------------------------------------------------
-     */
+    const showMessage = (doc, message, success = true) => {
+      let messageBox = doc.querySelector(".skytech-form-message");
+
+      if (!messageBox) {
+        messageBox = doc.createElement("div");
+        messageBox.className = "skytech-form-message";
+
+        Object.assign(messageBox.style, {
+          marginTop: "16px",
+          padding: "12px 16px",
+          borderRadius: "8px",
+          fontSize: "14px",
+          fontWeight: "600",
+          whiteSpace: "pre-line",
+        });
+
+        if (form) {
+          form.appendChild(messageBox);
+        }
+      }
+
+      messageBox.textContent = message;
+
+      messageBox.style.background = success
+        ? "#e8f5e9"
+        : "#ffebee";
+
+      messageBox.style.color = success
+        ? "#1b5e20"
+        : "#b71c1c";
+    };
+
+    const cleanupForm = () => {
+      if (form && submitHandler) {
+        form.removeEventListener("submit", submitHandler);
+      }
+
+      form = null;
+      submitHandler = null;
+    };
+
     const setupPage = () => {
       const doc = iframe.contentDocument;
 
       if (!doc) {
-        console.error(
-          "Contact iframe document not available."
-        );
+        console.error("Contact iframe document not available.");
         return;
       }
 
-      /*
-       * Find form.
-       */
+      cleanupForm();
+
       form = doc.querySelector("form");
 
       if (!form) {
-        console.error(
-          "SKYTECH Contact form was not found."
-        );
+        console.error("SKYTECH Contact form was not found.");
         return;
       }
 
-      console.log(
-        "SKYTECH Contact form connected."
-      );
-
-      /*
-       * -------------------------------------------------------
-       * FIND FIELDS
-       * -------------------------------------------------------
-       */
-
       const nameInput =
-        findInputByKeywords(
+        findField(
           doc,
           [
             "full name",
             "fullname",
             "customer_name",
             "customer name",
-          ]
+          ],
+          form
         ) ||
-        form.querySelector(
-          "input[type='text']"
-        );
+        form.querySelector("input[type='text']");
 
-      const companyInput =
-        findInputByKeywords(
-          doc,
-          [
-            "company",
-            "company_name",
-            "organization",
-          ]
-        );
+      const companyInput = findField(
+        doc,
+        [
+          "company name",
+          "company",
+          "organization",
+        ],
+        form
+      );
+
+      const emailInput = findField(
+        doc,
+        [
+          "email address",
+          "email",
+        ],
+        form
+      );
+
+      const phoneInput = findField(
+        doc,
+        [
+          "phone number",
+          "phone",
+          "mobile",
+          "contact number",
+        ],
+        form
+      );
 
       const requirementSelect =
-        findInputByKeywords(
+        findField(
           doc,
           [
             "requirement",
             "primary requirement",
-          ]
-        ) ||
-        form.querySelector(
-          "select"
-        );
+          ],
+          form
+        ) || form.querySelector("select");
 
       const projectDetailsInput =
-        findInputByKeywords(
+        findField(
           doc,
           [
             "project details",
             "project_detail",
             "message",
             "details",
-          ]
-        ) ||
-        form.querySelector(
-          "textarea"
-        );
+          ],
+          form
+        ) || form.querySelector("textarea");
 
-      /*
-       * Log detected fields.
-       */
-      console.log(
-        "Contact form fields:",
-        {
-          nameInput,
-          companyInput,
-          requirementSelect,
-          projectDetailsInput,
-        }
-      );
-
-      /*
-       * -------------------------------------------------------
-       * SUBMIT HANDLER
-       * -------------------------------------------------------
-       */
       submitHandler = async (event) => {
         event.preventDefault();
 
-        /*
-         * Read values.
-         */
         const customerName =
           nameInput?.value?.trim() || "";
 
         const company =
           companyInput?.value?.trim() || "";
 
+        const email =
+          emailInput?.value?.trim() || "";
+
+        const phone =
+          phoneInput?.value?.trim() || "";
+
         const requirement =
           requirementSelect?.value?.trim() || "";
 
         const message =
-          projectDetailsInput
-            ?.value
-            ?.trim() || "";
-
-        console.log(
-          "Contact form submitted:",
-          {
-            customerName,
-            company,
-            requirement,
-            message,
-          }
-        );
-
-        /*
-         * -----------------------------------------------------
-         * VALIDATION
-         * -----------------------------------------------------
-         */
+          projectDetailsInput?.value?.trim() || "";
 
         if (!customerName) {
-          alert(
-            "Please enter your full name."
+          showMessage(
+            doc,
+            "Please enter your full name.",
+            false
           );
           return;
+        }
+
+        if (email) {
+          const emailPattern =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+          if (!emailPattern.test(email)) {
+            showMessage(
+              doc,
+              "Please enter a valid email address.",
+              false
+            );
+            return;
+          }
         }
 
         if (!requirement) {
-          alert(
-            "Please select your primary requirement."
+          showMessage(
+            doc,
+            "Please select your primary requirement.",
+            false
           );
           return;
         }
 
+        const normalizedRequirement =
+          requirement.toLowerCase();
+
         if (
-          requirement.toLowerCase() ===
-            "select" ||
-          requirement.toLowerCase() ===
-            "select requirement"
+          normalizedRequirement === "select" ||
+          normalizedRequirement === "select requirement" ||
+          normalizedRequirement === "choose"
         ) {
-          alert(
-            "Please select your primary requirement."
+          showMessage(
+            doc,
+            "Please select your primary requirement.",
+            false
           );
           return;
         }
 
         if (!message) {
-          alert(
-            "Please enter your project details."
+          showMessage(
+            doc,
+            "Please enter your project details.",
+            false
           );
           return;
         }
 
-        /*
-         * -----------------------------------------------------
-         * SUBMIT BUTTON
-         * -----------------------------------------------------
-         */
-
-        const submitButton =
-          form.querySelector(
-            "button[type='submit'], input[type='submit']"
+        if (message.length < 5) {
+          showMessage(
+            doc,
+            "Please provide more details about your project.",
+            false
           );
+          return;
+        }
+
+        const submitButton = form.querySelector(
+          "button[type='submit'], input[type='submit']"
+        );
 
         const originalButtonText =
           submitButton?.textContent || "";
 
         if (submitButton) {
           submitButton.disabled = true;
+          submitButton.style.opacity = "0.6";
+          submitButton.style.cursor = "not-allowed";
 
-          if (
-            submitButton.tagName ===
-            "BUTTON"
-          ) {
-            submitButton.textContent =
-              "Submitting...";
+          if (submitButton.tagName === "BUTTON") {
+            submitButton.textContent = "Submitting...";
           }
         }
 
-        /*
-         * -----------------------------------------------------
-         * API REQUEST
-         * -----------------------------------------------------
-         */
-
         try {
-          const response =
-            await fetch(API_URL, {
+          const response = await apiFetch(
+            "/api/public/contact",
+            {
               method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
+              body: {
+                customer_name: customerName,
+                company: company || null,
+                email: email || null,
+                phone: phone || null,
+                requirement,
+                message,
               },
+            }
+          );
 
-              body: JSON.stringify({
-                customer_name:
-                  customerName,
-
-                company:
-                  company || null,
-
-                /*
-                 * Contact page does not collect
-                 * email or phone.
-                 */
-                email: null,
-
-                phone: null,
-
-                requirement:
-                  requirement,
-
-                message:
-                  message,
-              }),
-            });
-
-          /*
-           * Read response safely.
-           */
           let data = null;
 
           try {
-            data =
-              await response.json();
+            data = await response.json();
           } catch {
             data = null;
           }
-
-          console.log(
-            "Contact API status:",
-            response.status
-          );
-
-          console.log(
-            "Contact API response:",
-            data
-          );
-
-          /*
-           * ---------------------------------------------------
-           * HANDLE API ERROR
-           * ---------------------------------------------------
-           */
 
           if (!response.ok) {
             let errorMessage =
               "Unable to submit your request.";
 
-            /*
-             * FastAPI validation errors:
-             *
-             * detail: [
-             *   {
-             *     loc: [...],
-             *     msg: "...",
-             *     type: "..."
-             *   }
-             * ]
-             */
-            if (
-              Array.isArray(
-                data?.detail
-              )
+            if (Array.isArray(data?.detail)) {
+              errorMessage = data.detail
+                .map((error) => {
+                  const location =
+                    Array.isArray(error?.loc)
+                      ? error.loc
+                          .filter(Boolean)
+                          .join(".")
+                      : "field";
+
+                  const message =
+                    error?.msg || "Invalid value";
+
+                  return `${location}: ${message}`;
+                })
+                .join("\n");
+            } else if (
+              typeof data?.detail === "string"
             ) {
-              errorMessage =
-                data.detail
-                  .map((error) => {
-                    const location =
-                      Array.isArray(
-                        error?.loc
-                      )
-                        ? error.loc
-                            .filter(
-                              Boolean
-                            )
-                            .join(".")
-                        : "field";
-
-                    const message =
-                      error?.msg ||
-                      "Invalid value";
-
-                    return `${location}: ${message}`;
-                  })
-                  .join("\n");
-            }
-
-            /*
-             * Normal FastAPI:
-             *
-             * detail: "some message"
-             */
-            else if (
-              typeof data?.detail ===
-              "string"
-            ) {
-              errorMessage =
-                data.detail;
-            }
-
-            /*
-             * Object error.
-             */
-            else if (
+              errorMessage = data.detail;
+            } else if (
               data?.detail &&
-              typeof data.detail ===
-                "object"
+              typeof data.detail === "object"
             ) {
               errorMessage =
                 data.detail.msg ||
-                JSON.stringify(
-                  data.detail,
-                  null,
-                  2
-                );
+                JSON.stringify(data.detail);
+            } else if (data?.message) {
+              errorMessage = data.message;
             }
 
-            /*
-             * Other API error.
-             */
-            else if (
-              data?.message
-            ) {
-              errorMessage =
-                data.message;
-            }
-
-            console.error(
-              "Contact API Error:",
-              {
-                status:
-                  response.status,
-                data,
-                errorMessage,
-              }
-            );
-
-            throw new Error(
-              errorMessage
-            );
+            throw new Error(errorMessage);
           }
-
-          /*
-           * ---------------------------------------------------
-           * SUCCESS
-           * ---------------------------------------------------
-           */
 
           const leadCode =
             data?.lead_code ||
             data?.lead?.lead_code ||
             "Generated";
 
-          alert(
-            `Request submitted successfully!\n\nLead Code: ${leadCode}`
+          showMessage(
+            doc,
+            `Request submitted successfully.\nReference: ${leadCode}`,
+            true
           );
 
-          /*
-           * Reset Stitch form.
-           */
           form.reset();
-
-          console.log(
-            "Contact enquiry submitted successfully:",
-            data
-          );
         } catch (error) {
-          /*
-           * ---------------------------------------------------
-           * FINAL ERROR HANDLING
-           * ---------------------------------------------------
-           */
-
           console.error(
             "Contact submission failed:",
             error
           );
 
-          alert(
-            `Request failed.\n\n${
-              error?.message ||
-              "Something went wrong. Please try again."
-            }`
+          showMessage(
+            doc,
+            error?.message ||
+              "Something went wrong. Please try again.",
+            false
           );
         } finally {
-          /*
-           * ---------------------------------------------------
-           * RESTORE BUTTON
-           * ---------------------------------------------------
-           */
-
           if (submitButton) {
             submitButton.disabled = false;
+            submitButton.style.opacity = "1";
+            submitButton.style.cursor = "";
 
-            if (
-              submitButton.tagName ===
-              "BUTTON"
-            ) {
+            if (submitButton.tagName === "BUTTON") {
               submitButton.textContent =
                 originalButtonText ||
                 "Submit Request";
@@ -492,25 +364,20 @@ export default function ContactUs() {
         }
       };
 
-      /*
-       * Attach submit listener.
-       */
       form.addEventListener(
         "submit",
         submitHandler
       );
     };
 
-    /*
-     * ---------------------------------------------------------
-     * IFRAME LOAD
-     * ---------------------------------------------------------
-     */
     const handleLoad = () => {
-      setTimeout(
-        setupPage,
-        300
-      );
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(() => {
+        setupPage();
+      }, 300);
     };
 
     iframe.addEventListener(
@@ -518,52 +385,35 @@ export default function ContactUs() {
       handleLoad
     );
 
-    /*
-     * If already loaded.
-     */
     if (
-      iframe.contentDocument
-        ?.readyState ===
+      iframe.contentDocument?.readyState ===
       "complete"
     ) {
       handleLoad();
     }
 
-    /*
-     * ---------------------------------------------------------
-     * CLEANUP
-     * ---------------------------------------------------------
-     */
     return () => {
       iframe.removeEventListener(
         "load",
         handleLoad
       );
 
-      if (
-        form &&
-        submitHandler
-      ) {
-        form.removeEventListener(
-          "submit",
-          submitHandler
-        );
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
       }
+
+      cleanupForm();
     };
   }, []);
 
-  /*
-   * -----------------------------------------------------------
-   * STITCH PAGE
-   * -----------------------------------------------------------
-   */
-
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Contact Us"
-      src="/stitch/contact_us_skytech_electricals/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Contact Us"
+        src="/stitch/contact_us_skytech_electricals/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

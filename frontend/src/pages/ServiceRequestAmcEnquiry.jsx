@@ -1,551 +1,367 @@
 import { useEffect, useRef } from "react";
+import { apiFetch } from "../utils/api";
 
-export default function ServiceRequests() {
+export default function ServiceRequestAmcEnquiry() {
   const iframeRef = useRef(null);
 
   useEffect(() => {
     const iframe = iframeRef.current;
 
-    if (!iframe) return;
+    if (!iframe) {
+      return undefined;
+    }
 
-    let searchInput = null;
-    let searchHandler = null;
+    let timeoutId = null;
+    let iframeDocument = null;
+    let isMounted = true;
 
-    let statusSelect = null;
-    let statusHandler = null;
+    let form = null;
+    let submitButton = null;
+    let submitHandler = null;
 
-    let prioritySelect = null;
-    let priorityHandler = null;
+    const getApiError = async (response) => {
+      let message =
+        `Request failed with status ${response.status}.`;
 
-    let previousButton = null;
-    let nextButton = null;
+      try {
+        const data = await response.json();
 
-    let previousHandler = null;
-    let nextHandler = null;
-
-    let currentSearch = "";
-    let currentStatus = "";
-    let currentPriority = "";
-    let currentPage = 1;
-
-    const getToken = () =>
-      localStorage.getItem("access_token") ||
-      sessionStorage.getItem("access_token");
-
-    const renderRequests = (doc, data) => {
-      const main =
-        doc.querySelector("main") || doc.body;
-
-      const table = main.querySelector("table");
-
-      if (table) {
-        const tbody = table.querySelector("tbody");
-
-        if (tbody) {
-          tbody.innerHTML = "";
-
-          data.requests.forEach((request) => {
-            const row = doc.createElement("tr");
-
-            row.innerHTML = `
-              <td>
-                <a
-                  href="#"
-                  class="service-request-detail-link"
-                  data-request-id="${request.id}"
-                  style="
-                    color: #0050cc;
-                    font-weight: 600;
-                    text-decoration: none;
-                    cursor: pointer;
-                  "
-                >
-                  ${request.request_code || "-"}
-                </a>
-              </td>
-
-              <td>
-                ${request.customer_name || "-"}
-              </td>
-
-              <td>
-                ${request.company || "-"}
-              </td>
-
-              <td>
-                ${request.issue || "-"}
-              </td>
-
-              <td>
-                ${request.priority || "-"}
-              </td>
-
-              <td>
-                ${request.status || "-"}
-              </td>
-
-              <td>
-                ${request.assigned_to || "-"}
-              </td>
-
-              <td>
-                ${
-                  request.created_at
-                    ? new Date(
-                        request.created_at
-                      ).toLocaleDateString("en-IN")
-                    : "-"
-                }
-              </td>
-            `;
-
-            tbody.appendChild(row);
-
-            const requestLink =
-              row.querySelector(
-                ".service-request-detail-link"
-              );
-
-            if (requestLink) {
-              requestLink.addEventListener(
-                "click",
-                (event) => {
-                  event.preventDefault();
-
-                  const requestId =
-                    requestLink.getAttribute(
-                      "data-request-id"
-                    );
-
-                  if (requestId) {
-                    sessionStorage.setItem(
-                      "selected_service_request_id",
-                      requestId
-                    );
-
-                    console.log(
-                      "Selected service request:",
-                      requestId
-                    );
-                  }
-                }
-              );
-            }
-          });
+        if (typeof data?.detail === "string") {
+          message = data.detail;
+        } else if (Array.isArray(data?.detail)) {
+          message = data.detail
+            .map(
+              (item) =>
+                item?.msg ||
+                "Validation error"
+            )
+            .join(", ");
         }
+      } catch {
+        // Keep default message.
       }
 
-      /*
-       * Pagination text
-       */
-      const paginationText = Array.from(
-        main.querySelectorAll("*")
-      ).find(
-        (element) =>
-          element.children.length === 0 &&
-          /showing.*of/i.test(
-            element.textContent.trim()
-          )
+      return message;
+    };
+
+    const findInput = (doc, keywords) => {
+      const elements = Array.from(
+        doc.querySelectorAll(
+          "input, textarea, select"
+        )
       );
 
-      if (paginationText) {
-        const start =
-          data.total === 0
-            ? 0
-            : (data.page - 1) *
-                data.limit +
-              1;
+      return (
+        elements.find((element) => {
+          const text =
+            `${element.getAttribute("name") || ""} ${
+              element.getAttribute("id") || ""
+            } ${
+              element.getAttribute("placeholder") || ""
+            } ${
+              element.getAttribute("aria-label") || ""
+            }`.toLowerCase();
 
-        const end =
-          (data.page - 1) *
-            data.limit +
-          data.requests.length;
-
-        paginationText.textContent =
-          `Showing ${start}-${end} of ${data.total} requests`;
-      }
-
-      /*
-       * Previous button
-       */
-      if (previousButton) {
-        previousButton.disabled =
-          data.page <= 1;
-
-        previousButton.style.opacity =
-          data.page <= 1 ? "0.5" : "1";
-
-        previousButton.style.pointerEvents =
-          data.page <= 1
-            ? "none"
-            : "auto";
-      }
-
-      /*
-       * Next button
-       */
-      if (nextButton) {
-        nextButton.disabled =
-          data.page >= data.total_pages;
-
-        nextButton.style.opacity =
-          data.page >= data.total_pages
-            ? "0.5"
-            : "1";
-
-        nextButton.style.pointerEvents =
-          data.page >= data.total_pages
-            ? "none"
-            : "auto";
-      }
-
-      console.log(
-        `Service Request Page ${data.page} of ${data.total_pages}`
+          return keywords.some((keyword) =>
+            text.includes(keyword)
+          );
+        }) || null
       );
     };
 
-    const fetchRequests = async (doc) => {
-      const token = getToken();
+    const getFieldValue = (doc, keywords) => {
+      const element = findInput(
+        doc,
+        keywords
+      );
 
-      if (!token) {
-        console.error(
-          "No access token found."
+      if (!element) {
+        return "";
+      }
+
+      return String(element.value || "").trim();
+    };
+
+    const setFormMessage = (
+      doc,
+      message,
+      success = false
+    ) => {
+      let messageElement =
+        doc.getElementById(
+          "skytech-amc-form-message"
+        );
+
+      if (!messageElement) {
+        messageElement =
+          doc.createElement("div");
+
+        messageElement.id =
+          "skytech-amc-form-message";
+
+        messageElement.style.cssText = `
+          margin: 16px 0;
+          padding: 12px 16px;
+          border-radius: 8px;
+          font-family: Inter, Arial, sans-serif;
+          font-size: 14px;
+          line-height: 1.5;
+        `;
+
+        if (form) {
+          form.insertBefore(
+            messageElement,
+            form.firstChild
+          );
+        } else {
+          doc.body.prepend(
+            messageElement
+          );
+        }
+      }
+
+      messageElement.textContent =
+        message;
+
+      messageElement.style.background =
+        success
+          ? "#ecfdf5"
+          : "#fef2f2";
+
+      messageElement.style.color =
+        success
+          ? "#047857"
+          : "#b91c1c";
+
+      messageElement.style.border =
+        success
+          ? "1px solid #a7f3d0"
+          : "1px solid #fecaca";
+    };
+
+    const submitRequest = async () => {
+      if (!form || !isMounted) {
+        return;
+      }
+
+      const customerName =
+        getFieldValue(doc, [
+          "customer_name",
+          "customer-name",
+          "name",
+          "full name",
+          "customer",
+        ]);
+
+      const company =
+        getFieldValue(doc, [
+          "company",
+          "company_name",
+          "company-name",
+          "organization",
+        ]);
+
+      const issue =
+        getFieldValue(doc, [
+          "issue",
+          "problem",
+          "message",
+          "description",
+          "requirement",
+          "request",
+        ]);
+
+      const priority =
+        getFieldValue(doc, [
+          "priority",
+        ]) || "normal";
+
+      if (!customerName) {
+        setFormMessage(
+          doc,
+          "Please enter your name."
         );
         return;
       }
 
+      if (!issue) {
+        setFormMessage(
+          doc,
+          "Please describe your service or AMC requirement."
+        );
+        return;
+      }
+
+      const normalizedPriority =
+        priority.toLowerCase();
+
+      const allowedPriorities = [
+        "low",
+        "normal",
+        "high",
+        "critical",
+      ];
+
+      const finalPriority =
+        allowedPriorities.includes(
+          normalizedPriority
+        )
+          ? normalizedPriority
+          : "normal";
+
+      const payload = {
+        customer_name:
+          customerName,
+        company:
+          company || null,
+        issue,
+        priority:
+          finalPriority,
+      };
+
       try {
-        const url = new URL(
-          "http://127.0.0.1:8000/api/admin/service-requests"
-        );
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.dataset.originalText =
+            submitButton.textContent;
 
-        if (currentSearch.trim()) {
-          url.searchParams.set(
-            "search",
-            currentSearch.trim()
-          );
+          submitButton.textContent =
+            "Submitting...";
         }
 
-        if (currentStatus.trim()) {
-          url.searchParams.set(
-            "status",
-            currentStatus.trim()
+        setFormMessage(
+          doc,
+          "Submitting your request..."
+        );
+
+        const response =
+          await apiFetch(
+            "/api/public/amc-request",
+            {
+              method: "POST",
+              body: payload,
+            }
           );
-        }
-
-        if (currentPriority.trim()) {
-          url.searchParams.set(
-            "priority",
-            currentPriority.trim()
-          );
-        }
-
-        url.searchParams.set(
-          "page",
-          currentPage
-        );
-
-        url.searchParams.set(
-          "limit",
-          "10"
-        );
-
-        const response = await fetch(
-          url.toString(),
-          {
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
 
         if (!response.ok) {
           throw new Error(
-            `Service Requests API failed: ${response.status}`
+            await getApiError(response)
           );
         }
 
         const data =
           await response.json();
 
-        console.log(
-          "Service Requests API:",
-          data
+        if (!isMounted) {
+          return;
+        }
+
+        const requestCode =
+          data?.request_code ||
+          data?.service_request_code ||
+          "";
+
+        setFormMessage(
+          doc,
+          requestCode
+            ? `Request submitted successfully. Your request number is ${requestCode}.`
+            : "Your service request has been submitted successfully.",
+          true
         );
 
-        renderRequests(
-          doc,
-          data
-        );
+        form.reset?.();
       } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
         console.error(
-          "Service Requests Error:",
+          "Public AMC request error:",
           error
         );
+
+        setFormMessage(
+          doc,
+          error.message ||
+            "Unable to submit your request. Please try again."
+        );
+      } finally {
+        if (
+          isMounted &&
+          submitButton
+        ) {
+          submitButton.disabled = false;
+
+          submitButton.textContent =
+            submitButton.dataset
+              .originalText ||
+            "Submit";
+        }
       }
-    };
-
-    let mainElement = null;
-
-    const findButton = (keywords) => {
-      if (!mainElement) return null;
-
-      const buttons = Array.from(
-        mainElement.querySelectorAll(
-          "button, a, [role='button']"
-        )
-      );
-
-      return (
-        buttons.find((button) => {
-          const text =
-            button.textContent
-              ?.trim()
-              .toLowerCase() || "";
-
-          const aria =
-            button
-              .getAttribute(
-                "aria-label"
-              )
-              ?.toLowerCase() || "";
-
-          const title =
-            button
-              .getAttribute("title")
-              ?.toLowerCase() || "";
-
-          const combined =
-            `${text} ${aria} ${title}`;
-
-          return keywords.some(
-            (keyword) =>
-              combined.includes(keyword)
-          );
-        }) || null
-      );
     };
 
     const setupPage = () => {
       const doc =
-        iframe.contentDocument;
+        iframe.contentDocument ||
+        iframe.contentWindow?.document;
 
-      if (!doc) return;
+      if (!doc) {
+        return;
+      }
 
-      mainElement =
-        doc.querySelector("main") ||
-        doc.body;
+      iframeDocument = doc;
 
-      currentPage = 1;
+      form =
+        doc.querySelector("form");
 
-      fetchRequests(doc);
+      if (!form) {
+        console.warn(
+          "Public AMC request form was not found in Stitch page."
+        );
+        return;
+      }
 
-      /*
-       * SEARCH
-       */
-      const inputs = Array.from(
-        doc.querySelectorAll("input")
-      );
-
-      searchInput =
-        inputs.find((input) => {
-          const placeholder =
-            input
-              .getAttribute(
-                "placeholder"
-              )
-              ?.toLowerCase() || "";
-
-          const ariaLabel =
-            input
-              .getAttribute(
-                "aria-label"
-              )
-              ?.toLowerCase() || "";
+      submitButton =
+        Array.from(
+          form.querySelectorAll(
+            "button, input[type='submit']"
+          )
+        ).find((button) => {
+          const text =
+            `${button.textContent || ""} ${
+              button.value || ""
+            }`.toLowerCase();
 
           return (
-            placeholder.includes(
-              "search"
-            ) ||
-            ariaLabel.includes(
-              "search"
-            )
+            text.includes("submit") ||
+            text.includes("request") ||
+            text.includes("send")
           );
         }) || null;
 
-      if (searchInput) {
-        console.log(
-          "Service request search connected"
-        );
+      submitHandler = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
 
-        searchHandler = () => {
-          currentSearch =
-            searchInput.value;
+        submitRequest();
+      };
 
-          currentPage = 1;
-
-          fetchRequests(doc);
-        };
-
-        searchInput.addEventListener(
-          "input",
-          searchHandler
-        );
-      }
-
-      /*
-       * SELECT FILTERS
-       */
-      const selects = Array.from(
-        doc.querySelectorAll("select")
-      );
-
-      selects.forEach((select) => {
-        const text =
-          select.parentElement
-            ?.textContent
-            ?.toLowerCase() || "";
-
-        const ariaLabel =
-          select
-            .getAttribute(
-              "aria-label"
-            )
-            ?.toLowerCase() || "";
-
-        const name =
-          select
-            .getAttribute("name")
-            ?.toLowerCase() || "";
-
-        const id =
-          select
-            .getAttribute("id")
-            ?.toLowerCase() || "";
-
-        const combined =
-          `${text} ${ariaLabel} ${name} ${id}`;
-
-        /*
-         * STATUS
-         */
-        if (
-          !statusSelect &&
-          combined.includes("status")
-        ) {
-          statusSelect = select;
-
-          console.log(
-            "Service request status filter connected"
-          );
-
-          statusHandler = () => {
-            currentStatus =
-              statusSelect.value;
-
-            currentPage = 1;
-
-            fetchRequests(doc);
-          };
-
-          statusSelect.addEventListener(
-            "change",
-            statusHandler
-          );
-        }
-
-        /*
-         * PRIORITY
-         */
-        if (
-          !prioritySelect &&
-          combined.includes("priority")
-        ) {
-          prioritySelect = select;
-
-          console.log(
-            "Service request priority filter connected"
-          );
-
-          priorityHandler = () => {
-            currentPriority =
-              prioritySelect.value;
-
-            currentPage = 1;
-
-            fetchRequests(doc);
-          };
-
-          prioritySelect.addEventListener(
-            "change",
-            priorityHandler
-          );
-        }
-      });
-
-      /*
-       * PAGINATION
-       */
-      previousButton = findButton([
-        "previous",
-        "prev",
-        "chevron_left",
-        "arrow_back",
-      ]);
-
-      nextButton = findButton([
-        "next",
-        "chevron_right",
-        "arrow_forward",
-      ]);
-
-      if (previousButton) {
-        previousHandler = (event) => {
-          event.preventDefault();
-
-          if (currentPage > 1) {
-            currentPage -= 1;
-
-            fetchRequests(doc);
-          }
-        };
-
-        previousButton.addEventListener(
-          "click",
-          previousHandler
-        );
-      }
-
-      if (nextButton) {
-        nextHandler = (event) => {
-          event.preventDefault();
-
-          currentPage += 1;
-
-          fetchRequests(doc);
-        };
-
-        nextButton.addEventListener(
-          "click",
-          nextHandler
-        );
-      }
-
-      console.log(
-        "Service request pagination connected:",
-        {
-          previousButton,
-          nextButton,
-        }
+      form.addEventListener(
+        "submit",
+        submitHandler
       );
     };
 
     const handleLoad = () => {
-      setTimeout(
-        setupPage,
-        300
-      );
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      timeoutId = window.setTimeout(() => {
+        if (isMounted) {
+          setupPage();
+        }
+      }, 300);
     };
 
     iframe.addEventListener(
@@ -555,76 +371,51 @@ export default function ServiceRequests() {
 
     if (
       iframe.contentDocument
-        ?.readyState ===
-      "complete"
+        ?.readyState === "complete"
     ) {
       handleLoad();
     }
 
     return () => {
+      isMounted = false;
+
       iframe.removeEventListener(
         "load",
         handleLoad
       );
 
-      if (
-        searchInput &&
-        searchHandler
-      ) {
-        searchInput.removeEventListener(
-          "input",
-          searchHandler
-        );
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
       }
 
       if (
-        statusSelect &&
-        statusHandler
+        form &&
+        submitHandler
       ) {
-        statusSelect.removeEventListener(
-          "change",
-          statusHandler
+        form.removeEventListener(
+          "submit",
+          submitHandler
         );
       }
 
-      if (
-        prioritySelect &&
-        priorityHandler
-      ) {
-        prioritySelect.removeEventListener(
-          "change",
-          priorityHandler
-        );
-      }
-
-      if (
-        previousButton &&
-        previousHandler
-      ) {
-        previousButton.removeEventListener(
-          "click",
-          previousHandler
-        );
-      }
-
-      if (
-        nextButton &&
-        nextHandler
-      ) {
-        nextButton.removeEventListener(
-          "click",
-          nextHandler
-        );
-      }
+      iframeDocument = null;
+      form = null;
+      submitButton = null;
+      submitHandler = null;
     };
   }, []);
 
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Support AMC Requests"
-      src="/stitch/support_amc_requests_skytech/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-64px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Service and AMC Request"
+        src="/stitch/support_amc_requests_skytech/code.html"
+        className="block w-full min-h-[calc(100vh-64px)] border-0"
+        style={{
+          height: "calc(100vh - 64px)",
+        }}
+      />
+    </div>
   );
 }

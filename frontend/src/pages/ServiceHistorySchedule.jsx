@@ -7,11 +7,18 @@ export default function ServiceHistorySchedule() {
   useEffect(() => {
     const iframe = iframeRef.current;
 
-    if (!iframe) return;
+    if (!iframe) {
+      return undefined;
+    }
 
-    // ---------------------------------------------------------
-    // HELPERS
-    // ---------------------------------------------------------
+    let timeoutId = null;
+    let iframeDocument = null;
+
+    /*
+     * ==========================================================
+     * API ERROR HELPER
+     * ==========================================================
+     */
 
     const getApiErrorMessage = async (response) => {
       try {
@@ -49,17 +56,27 @@ export default function ServiceHistorySchedule() {
           return data.message;
         }
       } catch {
-        // Ignore JSON parsing errors
+        // Ignore JSON parsing errors.
       }
 
       return `Request failed with status ${response.status}`;
     };
+
+    /*
+     * ==========================================================
+     * TEXT REPLACEMENT
+     * ==========================================================
+     */
 
     const replaceText = (
       container,
       possibleTexts,
       value
     ) => {
+      if (!container) {
+        return false;
+      }
+
       const elements = Array.from(
         container.querySelectorAll("*")
       );
@@ -69,37 +86,40 @@ export default function ServiceHistorySchedule() {
           return false;
         }
 
-        const text = el.textContent?.trim();
+        const text =
+          el.textContent?.trim();
 
         return possibleTexts.includes(text);
       });
 
       if (element) {
-        element.textContent = value ?? "-";
+        element.textContent =
+          value ?? "-";
+
         return true;
       }
 
       return false;
     };
 
-    // ---------------------------------------------------------
-    // SERVICE REQUEST DETAIL
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * SERVICE REQUEST DETAIL
+     * ==========================================================
+     */
 
     const renderServiceRequestDetail = (
       doc,
       data
     ) => {
       const main =
-        doc.querySelector("main") || doc.body;
+        doc.querySelector("main") ||
+        doc.body;
 
       const request =
-        data?.service_request || data || {};
-
-      console.log(
-        "Selected Service Request:",
-        request
-      );
+        data?.service_request ||
+        data ||
+        {};
 
       replaceText(
         main,
@@ -168,11 +188,14 @@ export default function ServiceHistorySchedule() {
         request.equipment_name
       );
 
-      const createdDate = request.created_at
-        ? new Date(
-            request.created_at
-          ).toLocaleDateString("en-IN")
-        : "-";
+      const createdDate =
+        request.created_at
+          ? new Date(
+              request.created_at
+            ).toLocaleDateString(
+              "en-IN"
+            )
+          : "-";
 
       replaceText(
         main,
@@ -190,9 +213,6 @@ export default function ServiceHistorySchedule() {
       doc
     ) => {
       if (!requestId) {
-        console.error(
-          "No service request ID found."
-        );
         return;
       }
 
@@ -203,16 +223,14 @@ export default function ServiceHistorySchedule() {
 
         if (!response.ok) {
           throw new Error(
-            await getApiErrorMessage(response)
+            await getApiErrorMessage(
+              response
+            )
           );
         }
 
-        const data = await response.json();
-
-        console.log(
-          "Service Request Detail API:",
-          data
-        );
+        const data =
+          await response.json();
 
         renderServiceRequestDetail(
           doc,
@@ -226,9 +244,11 @@ export default function ServiceHistorySchedule() {
       }
     };
 
-    // ---------------------------------------------------------
-    // EQUIPMENT
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * EQUIPMENT
+     * ==========================================================
+     */
 
     const fetchEquipment = async () => {
       const response = await apiFetch(
@@ -237,25 +257,25 @@ export default function ServiceHistorySchedule() {
 
       if (!response.ok) {
         throw new Error(
-          await getApiErrorMessage(response)
+          await getApiErrorMessage(
+            response
+          )
         );
       }
 
-      const data = await response.json();
-
-      console.log(
-        "Customer Equipment API:",
-        data
-      );
+      const data =
+        await response.json();
 
       return Array.isArray(data)
         ? data
         : data?.equipment || [];
     };
 
-    // ---------------------------------------------------------
-    // CREATE SERVICE REQUEST
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * CREATE SERVICE REQUEST
+     * ==========================================================
+     */
 
     const createServiceRequest = async (
       payload
@@ -270,16 +290,20 @@ export default function ServiceHistorySchedule() {
 
       if (!response.ok) {
         throw new Error(
-          await getApiErrorMessage(response)
+          await getApiErrorMessage(
+            response
+          )
         );
       }
 
-      return await response.json();
+      return response.json();
     };
 
-    // ---------------------------------------------------------
-    // SERVICE REQUEST MODAL
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * SERVICE REQUEST MODAL
+     * ==========================================================
+     */
 
     const openServiceRequestModal = async (
       doc,
@@ -297,7 +321,8 @@ export default function ServiceHistorySchedule() {
       let equipment = [];
 
       try {
-        equipment = await fetchEquipment();
+        equipment =
+          await fetchEquipment();
       } catch (error) {
         alert(
           `Unable to load equipment.\n\n${error.message}`
@@ -319,7 +344,7 @@ export default function ServiceHistorySchedule() {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
+        padding: 16px;
         font-family: Inter, Arial, sans-serif;
       `;
 
@@ -331,9 +356,10 @@ export default function ServiceHistorySchedule() {
         max-height: 90vh;
         overflow-y: auto;
         background: #ffffff;
-        border-radius: 8px;
-        padding: 32px;
+        border-radius: 12px;
+        padding: 28px;
         box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        box-sizing: border-box;
       `;
 
       const equipmentOptions =
@@ -368,7 +394,7 @@ export default function ServiceHistorySchedule() {
             display:flex;
             align-items:center;
             justify-content:space-between;
-            margin-bottom:24px;
+            margin-bottom:20px;
           "
         >
           <div>
@@ -378,7 +404,7 @@ export default function ServiceHistorySchedule() {
                 letter-spacing:2px;
                 font-weight:700;
                 color:#0050cc;
-                margin-bottom:8px;
+                margin-bottom:6px;
               "
             >
               SERVICE SUPPORT
@@ -387,7 +413,7 @@ export default function ServiceHistorySchedule() {
             <h2
               style="
                 margin:0;
-                font-size:28px;
+                font-size:26px;
                 line-height:1.2;
                 color:#111111;
               "
@@ -449,9 +475,10 @@ export default function ServiceHistorySchedule() {
               padding:0 14px;
               margin-bottom:20px;
               border:1px solid #c5c6cd;
-              border-radius:4px;
+              border-radius:6px;
               background:#ffffff;
               font-size:15px;
+              box-sizing:border-box;
             "
             ${
               equipment.length === 0
@@ -489,7 +516,7 @@ export default function ServiceHistorySchedule() {
               padding:14px;
               margin-bottom:20px;
               border:1px solid #c5c6cd;
-              border-radius:4px;
+              border-radius:6px;
               resize:vertical;
               font-family:Inter, Arial, sans-serif;
               font-size:15px;
@@ -516,9 +543,10 @@ export default function ServiceHistorySchedule() {
               padding:0 14px;
               margin-bottom:24px;
               border:1px solid #c5c6cd;
-              border-radius:4px;
+              border-radius:6px;
               background:#ffffff;
               font-size:15px;
+              box-sizing:border-box;
             "
           >
             <option value="normal">
@@ -539,9 +567,9 @@ export default function ServiceHistorySchedule() {
             id="skytech-submit-service-request"
             style="
               width:100%;
-              height:50px;
+              min-height:50px;
               border:0;
-              border-radius:4px;
+              border-radius:6px;
               background:#0050cc;
               color:#ffffff;
               font-size:15px;
@@ -558,7 +586,8 @@ export default function ServiceHistorySchedule() {
       overlay.appendChild(modal);
 
       (
-        doc.body || doc.documentElement
+        doc.body ||
+        doc.documentElement
       ).appendChild(overlay);
 
       const closeModal = () => {
@@ -577,7 +606,9 @@ export default function ServiceHistorySchedule() {
       overlay.addEventListener(
         "click",
         (event) => {
-          if (event.target === overlay) {
+          if (
+            event.target === overlay
+          ) {
             closeModal();
           }
         }
@@ -647,17 +678,27 @@ export default function ServiceHistorySchedule() {
                 priority,
               });
 
-            console.log(
-              "Service Request Created:",
-              data
-            );
-
             const requestCode =
               data?.request_code ||
               data?.service_request
                 ?.request_code ||
-              data?.request?.request_code ||
+              data?.request
+                ?.request_code ||
               "Generated";
+
+            const requestId =
+              data?.id ||
+              data?.request_id ||
+              data?.service_request_id ||
+              data?.service_request?.id ||
+              data?.request?.id;
+
+            if (requestId) {
+              sessionStorage.setItem(
+                "selected_service_request_id",
+                String(requestId)
+              );
+            }
 
             alert(
               `Service request submitted successfully!\n\nRequest Code: ${requestCode}`
@@ -687,9 +728,11 @@ export default function ServiceHistorySchedule() {
       );
     };
 
-    // ---------------------------------------------------------
-    // REQUEST BUTTON
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * REQUEST BUTTON
+     * ==========================================================
+     */
 
     const setupRequestButton = (
       doc,
@@ -757,13 +800,15 @@ export default function ServiceHistorySchedule() {
         return;
       }
 
+      /*
+       * Fallback button if Stitch screen
+       * does not contain one.
+       */
+
       const table =
         main.querySelector("table");
 
       if (!table) {
-        console.warn(
-          "Service history table not found."
-        );
         return;
       }
 
@@ -797,7 +842,7 @@ export default function ServiceHistorySchedule() {
 
       button.style.cssText = `
         border:0;
-        border-radius:4px;
+        border-radius:6px;
         background:#0050cc;
         color:#ffffff;
         padding:12px 22px;
@@ -824,9 +869,11 @@ export default function ServiceHistorySchedule() {
       );
     };
 
-    // ---------------------------------------------------------
-    // RENDER SERVICE HISTORY
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * RENDER SERVICE HISTORY
+     * ==========================================================
+     */
 
     const renderServiceHistory = (
       doc,
@@ -936,7 +983,9 @@ export default function ServiceHistorySchedule() {
                       "data-request-id"
                     );
 
-                  if (!requestId) return;
+                  if (!requestId) {
+                    return;
+                  }
 
                   sessionStorage.setItem(
                     "selected_service_request_id",
@@ -954,7 +1003,10 @@ export default function ServiceHistorySchedule() {
         }
       }
 
-      // Pagination
+      /*
+       * Pagination text.
+       */
+
       const paginationText =
         Array.from(
           main.querySelectorAll("*")
@@ -962,12 +1014,14 @@ export default function ServiceHistorySchedule() {
           (element) =>
             element.children.length === 0 &&
             /showing.*of/i.test(
-              element.textContent?.trim() || ""
+              element.textContent?.trim() ||
+                ""
             )
         );
 
       if (paginationText) {
-        const page = data?.page || 1;
+        const page =
+          data?.page || 1;
 
         const limit =
           data?.limit ||
@@ -994,9 +1048,11 @@ export default function ServiceHistorySchedule() {
       }
     };
 
-    // ---------------------------------------------------------
-    // FETCH SERVICE HISTORY
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * FETCH SERVICE HISTORY
+     * ==========================================================
+     */
 
     const fetchServiceHistory = async (
       doc
@@ -1008,16 +1064,14 @@ export default function ServiceHistorySchedule() {
 
         if (!response.ok) {
           throw new Error(
-            await getApiErrorMessage(response)
+            await getApiErrorMessage(
+              response
+            )
           );
         }
 
-        const data = await response.json();
-
-        console.log(
-          "Customer Service History API:",
-          data
-        );
+        const data =
+          await response.json();
 
         renderServiceHistory(
           doc,
@@ -1040,36 +1094,47 @@ export default function ServiceHistorySchedule() {
       }
     };
 
-    // ---------------------------------------------------------
-    // IFRAME LOAD
-    // ---------------------------------------------------------
+    /*
+     * ==========================================================
+     * IFRAME LOAD
+     * ==========================================================
+     */
 
     const handleLoad = () => {
-      setTimeout(() => {
-        const doc =
-          iframe.contentDocument;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
 
-        if (!doc) {
-          console.error(
-            "Unable to access Stitch iframe document."
-          );
-          return;
-        }
+      timeoutId = window.setTimeout(
+        () => {
+          const doc =
+            iframe.contentDocument;
 
-        fetchServiceHistory(doc);
+          if (!doc) {
+            console.error(
+              "Unable to access Stitch iframe document."
+            );
+            return;
+          }
 
-        const savedRequestId =
-          sessionStorage.getItem(
-            "selected_service_request_id"
-          );
+          iframeDocument = doc;
 
-        if (savedRequestId) {
-          fetchServiceRequestDetail(
-            savedRequestId,
-            doc
-          );
-        }
-      }, 300);
+          fetchServiceHistory(doc);
+
+          const savedRequestId =
+            sessionStorage.getItem(
+              "selected_service_request_id"
+            );
+
+          if (savedRequestId) {
+            fetchServiceRequestDetail(
+              savedRequestId,
+              doc
+            );
+          }
+        },
+        300
+      );
     };
 
     iframe.addEventListener(
@@ -1084,20 +1149,40 @@ export default function ServiceHistorySchedule() {
       handleLoad();
     }
 
+    /*
+     * ==========================================================
+     * CLEANUP
+     * ==========================================================
+     */
+
     return () => {
       iframe.removeEventListener(
         "load",
         handleLoad
       );
+
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+
+      iframeDocument = null;
     };
   }, []);
 
+  /*
+   * ==========================================================
+   * PAGE
+   * ==========================================================
+   */
+
   return (
-    <iframe
-      ref={iframeRef}
-      title="SKYTECH Customer Service History"
-      src="/stitch/service_history_schedule_skytech_portal/code.html"
-      className="w-full h-screen border-0 block"
-    />
+    <div className="w-full min-h-[calc(100vh-72px)] overflow-hidden">
+      <iframe
+        ref={iframeRef}
+        title="SKYTECH Customer Service History"
+        src="/stitch/service_history_schedule_skytech_portal/code.html"
+        className="block w-full min-h-[calc(100vh-72px)] h-[calc(100vh-72px)] border-0"
+      />
+    </div>
   );
 }

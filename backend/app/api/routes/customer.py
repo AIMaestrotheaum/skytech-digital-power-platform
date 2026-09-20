@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import jwt, JWTError
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from datetime import datetime
 import os
+from typing import Literal
+
 from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 
@@ -17,12 +19,18 @@ from app.database import get_db
 
 load_dotenv()
 
+
 router = APIRouter(
     prefix="/customer",
-    tags=["Customer Portal"]
+    tags=["Customer Portal"],
 )
 
-security = HTTPBearer()
+
+# ============================================================
+# SECURITY
+# ============================================================
+
+security = HTTPBearer(auto_error=False)
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
@@ -33,8 +41,19 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 # ============================================================
 
 class CustomerServiceRequest(BaseModel):
-    issue: str
-    priority: str = "normal"
+    issue: str = Field(
+        ...,
+        min_length=5,
+        max_length=5000,
+    )
+
+    priority: Literal[
+        "low",
+        "normal",
+        "high",
+        "critical",
+    ] = "normal"
+
     equipment_id: int | None = None
 
 
@@ -43,11 +62,27 @@ class CustomerServiceRequest(BaseModel):
 # ============================================================
 
 def get_customer_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db),
 ):
+    # Missing Authorization header
+    if credentials is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required",
+        )
+
     token = credentials.credentials
 
+    # JWT secret configuration check
+    if not JWT_SECRET:
+        raise HTTPException(
+            status_code=500,
+            detail="JWT secret is not configured",
+        )
+
     try:
+        # Decode and verify JWT
         payload = jwt.decode(
             token,
             JWT_SECRET,
@@ -57,23 +92,78 @@ def get_customer_user(
         user_id = payload.get("sub")
         role = payload.get("role")
 
+        # Validate user ID
         if not user_id:
             raise HTTPException(
                 status_code=401,
                 detail="Invalid token",
             )
 
+        # Customer role check
         if role != "customer":
             raise HTTPException(
                 status_code=403,
                 detail="Customer access required",
             )
 
+        # Convert user ID to integer
+        try:
+            user_id = int(user_id)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token",
+            )
+
+        # Verify user still exists in database
+        user = db.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    name,
+                    email,
+                    role,
+                    is_active
+                FROM users
+                WHERE id = :user_id
+                LIMIT 1
+                """
+            ),
+            {
+                "user_id": user_id,
+            },
+        ).mappings().first()
+
+        # User not found
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="User account not found",
+            )
+
+        # Account status check
+        if not user["is_active"]:
+            raise HTTPException(
+                status_code=403,
+                detail="User account is inactive",
+            )
+
+        # Database role check
+        if user["role"] != "customer":
+            raise HTTPException(
+                status_code=403,
+                detail="Customer access required",
+            )
+
         return {
-            "user_id": int(user_id),
-            "email": payload.get("email"),
-            "role": role,
+            "user_id": user["id"],
+            "email": user["email"],
+            "role": user["role"],
         }
+
+    except HTTPException:
+        raise
 
     except JWTError:
         raise HTTPException(
@@ -93,7 +183,12 @@ def get_customer_dashboard(
 ):
     user_id = customer_user["user_id"]
 
-    user_query = text("""
+    # --------------------------------------------------------
+    # Customer information
+    # --------------------------------------------------------
+
+    user_query = text(
+        """
         SELECT
             id,
             name,
@@ -101,11 +196,14 @@ def get_customer_dashboard(
         FROM users
         WHERE id = :user_id
         LIMIT 1
-    """)
+        """
+    )
 
     user = db.execute(
         user_query,
-        {"user_id": user_id},
+        {
+            "user_id": user_id,
+        },
     ).mappings().first()
 
     if not user:
@@ -114,33 +212,57 @@ def get_customer_dashboard(
             detail="Customer not found",
         )
 
+    # --------------------------------------------------------
+    # Equipment count
+    # --------------------------------------------------------
+
     equipment_count = db.execute(
-        text("""
+        text(
+            """
             SELECT COUNT(*)
             FROM customer_equipment
             WHERE customer_id = :user_id
-        """),
-        {"user_id": user_id},
+            """
+        ),
+        {
+            "user_id": user_id,
+        },
     ).scalar() or 0
 
+    # --------------------------------------------------------
+    # Open / in-progress service requests
+    # --------------------------------------------------------
+
     service_requests = db.execute(
-        text("""
+        text(
+            """
             SELECT COUNT(*)
             FROM service_requests
             WHERE customer_id = :user_id
               AND LOWER(status) IN ('open', 'in_progress')
-        """),
-        {"user_id": user_id},
+            """
+        ),
+        {
+            "user_id": user_id,
+        },
     ).scalar() or 0
 
+    # --------------------------------------------------------
+    # Active AMC contracts
+    # --------------------------------------------------------
+
     active_amc = db.execute(
-        text("""
+        text(
+            """
             SELECT COUNT(*)
             FROM amc_contracts
             WHERE customer_id = :user_id
               AND LOWER(status) = 'active'
-        """),
-        {"user_id": user_id},
+            """
+        ),
+        {
+            "user_id": user_id,
+        },
     ).scalar() or 0
 
     return {
@@ -162,7 +284,8 @@ def get_customer_equipment(
 ):
     user_id = customer_user["user_id"]
 
-    query = text("""
+    query = text(
+        """
         SELECT
             id,
             equipment_code,
@@ -179,11 +302,14 @@ def get_customer_equipment(
         FROM customer_equipment
         WHERE customer_id = :user_id
         ORDER BY created_at DESC
-    """)
+        """
+    )
 
     equipment = db.execute(
         query,
-        {"user_id": user_id},
+        {
+            "user_id": user_id,
+        },
     ).mappings().all()
 
     return {
@@ -207,7 +333,8 @@ def get_customer_equipment_detail(
 ):
     user_id = customer_user["user_id"]
 
-    query = text("""
+    query = text(
+        """
         SELECT
             id,
             equipment_code,
@@ -225,7 +352,8 @@ def get_customer_equipment_detail(
         WHERE id = :equipment_id
           AND customer_id = :user_id
         LIMIT 1
-    """)
+        """
+    )
 
     equipment = db.execute(
         query,
@@ -279,16 +407,27 @@ def get_customer_service_history(
 
     where_clause = " AND ".join(conditions)
 
+    # --------------------------------------------------------
+    # Total count
+    # --------------------------------------------------------
+
     total = db.execute(
-        text(f"""
+        text(
+            f"""
             SELECT COUNT(*)
             FROM service_requests sr
             WHERE {where_clause}
-        """),
+            """
+        ),
         params,
     ).scalar() or 0
 
-    query = text(f"""
+    # --------------------------------------------------------
+    # Service requests
+    # --------------------------------------------------------
+
+    query = text(
+        f"""
         SELECT
             sr.id,
             sr.request_code,
@@ -309,7 +448,8 @@ def get_customer_service_history(
         ORDER BY sr.created_at DESC
         LIMIT :limit
         OFFSET :offset
-    """)
+        """
+    )
 
     requests = db.execute(
         query,
@@ -344,7 +484,8 @@ def get_customer_service_history_detail(
 ):
     user_id = customer_user["user_id"]
 
-    query = text("""
+    query = text(
+        """
         SELECT
             sr.id,
             sr.request_code,
@@ -366,7 +507,8 @@ def get_customer_service_history_detail(
         WHERE sr.id = :request_id
           AND sr.customer_id = :user_id
         LIMIT 1
-    """)
+        """
+    )
 
     request = db.execute(
         query,
@@ -420,16 +562,27 @@ def get_customer_amc_contracts(
 
     where_clause = " AND ".join(conditions)
 
+    # --------------------------------------------------------
+    # Total count
+    # --------------------------------------------------------
+
     total = db.execute(
-        text(f"""
+        text(
+            f"""
             SELECT COUNT(*)
             FROM amc_contracts ac
             WHERE {where_clause}
-        """),
+            """
+        ),
         params,
     ).scalar() or 0
 
-    query = text(f"""
+    # --------------------------------------------------------
+    # AMC contracts
+    # --------------------------------------------------------
+
+    query = text(
+        f"""
         SELECT
             ac.id,
             ac.contract_code,
@@ -450,7 +603,8 @@ def get_customer_amc_contracts(
         ORDER BY ac.created_at DESC
         LIMIT :limit
         OFFSET :offset
-    """)
+        """
+    )
 
     contracts = db.execute(
         query,
@@ -485,7 +639,8 @@ def get_customer_amc_detail(
 ):
     user_id = customer_user["user_id"]
 
-    query = text("""
+    query = text(
+        """
         SELECT
             ac.id,
             ac.contract_code,
@@ -507,7 +662,8 @@ def get_customer_amc_detail(
         WHERE ac.id = :contract_id
           AND ac.customer_id = :user_id
         LIMIT 1
-    """)
+        """
+    )
 
     contract = db.execute(
         query,
@@ -538,27 +694,25 @@ def create_customer_service_request(
 ):
     user_id = customer_user["user_id"]
 
-    if not request.issue.strip():
+    # --------------------------------------------------------
+    # Validate issue
+    # --------------------------------------------------------
+
+    issue = request.issue.strip()
+
+    if not issue:
         raise HTTPException(
             status_code=400,
             detail="Issue cannot be empty",
         )
 
-    allowed_priorities = {
-        "low",
-        "normal",
-        "high",
-        "critical",
-    }
-
-    if request.priority.lower() not in allowed_priorities:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid priority",
-        )
+    # --------------------------------------------------------
+    # Get customer
+    # --------------------------------------------------------
 
     customer = db.execute(
-        text("""
+        text(
+            """
             SELECT
                 id,
                 name,
@@ -566,8 +720,11 @@ def create_customer_service_request(
             FROM users
             WHERE id = :user_id
             LIMIT 1
-        """),
-        {"user_id": user_id},
+            """
+        ),
+        {
+            "user_id": user_id,
+        },
     ).mappings().first()
 
     if not customer:
@@ -576,10 +733,14 @@ def create_customer_service_request(
             detail="Customer not found",
         )
 
+    # --------------------------------------------------------
     # Verify equipment belongs to this customer
+    # --------------------------------------------------------
+
     if request.equipment_id is not None:
         equipment = db.execute(
-            text("""
+            text(
+                """
                 SELECT
                     id,
                     equipment_code,
@@ -588,7 +749,8 @@ def create_customer_service_request(
                 WHERE id = :equipment_id
                   AND customer_id = :user_id
                 LIMIT 1
-            """),
+                """
+            ),
             {
                 "equipment_id": request.equipment_id,
                 "user_id": user_id,
@@ -601,14 +763,22 @@ def create_customer_service_request(
                 detail="Equipment not found",
             )
 
-    # Generate request code
+    # --------------------------------------------------------
+    # Generate service request code
+    # --------------------------------------------------------
+
     request_code = (
-        "SR-" +
-        datetime.now().strftime("%y%m%d%H%M%S")
+        "SR-"
+        + datetime.now().strftime("%y%m%d%H%M%S")
     )
 
+    # --------------------------------------------------------
+    # Insert service request
+    # --------------------------------------------------------
+
     result = db.execute(
-        text("""
+        text(
+            """
             INSERT INTO service_requests (
                 request_code,
                 customer_name,
@@ -630,12 +800,13 @@ def create_customer_service_request(
             RETURNING
                 id,
                 request_code
-        """),
+            """
+        ),
         {
             "request_code": request_code,
             "customer_name": customer["name"],
-            "issue": request.issue.strip(),
-            "priority": request.priority.lower(),
+            "issue": issue,
+            "priority": request.priority,
             "customer_id": user_id,
             "equipment_id": request.equipment_id,
         },
@@ -644,6 +815,12 @@ def create_customer_service_request(
     db.commit()
 
     service_request = result.mappings().first()
+
+    if not service_request:
+        raise HTTPException(
+            status_code=500,
+            detail="Service request could not be created",
+        )
 
     return {
         "success": True,
